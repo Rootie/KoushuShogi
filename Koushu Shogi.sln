@@ -1,0 +1,67 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{9344bdbb-3e7f-41fc-a0dd-8665d75ee146}") = "ShogibanTranslation", "ShogibanTranslation\ShogibanTranslation.mdproj", "{56D31D07-9B2E-4E27-A507-5374E0317E71}"
+EndProject
+Project("{9344bdbb-3e7f-41fc-a0dd-8665d75ee146}") = "Packages", "Packages.mdproj", "{04ECAE30-36CA-4617-AD6E-DCC1D78E6179}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Koushu Shogi", "KoushuShogi\Koushu Shogi.csproj", "{E45DC61D-2F1B-49D1-99A6-342F3E885010}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{04ECAE30-36CA-4617-AD6E-DCC1D78E6179}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{04ECAE30-36CA-4617-AD6E-DCC1D78E6179}.Release|x86.ActiveCfg = Release|Any CPU
+		{56D31D07-9B2E-4E27-A507-5374E0317E71}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{56D31D07-9B2E-4E27-A507-5374E0317E71}.Release|x86.ActiveCfg = Release|Any CPU
+		{E45DC61D-2F1B-49D1-99A6-342F3E885010}.Debug|x86.ActiveCfg = Debug|x86
+		{E45DC61D-2F1B-49D1-99A6-342F3E885010}.Debug|x86.Build.0 = Debug|x86
+		{E45DC61D-2F1B-49D1-99A6-342F3E885010}.Release|x86.ActiveCfg = Release|x86
+		{E45DC61D-2F1B-49D1-99A6-342F3E885010}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = KoushuShogi\Koushu Shogi.csproj
+		Policies = $0
+		$0.DotNetNamingPolicy = $1
+		$1.DirectoryNamespaceAssociation = None
+		$1.ResourceNamePolicy = FileFormatDefault
+		$0.TextStylePolicy = $2
+		$2.FileWidth = 120
+		$2.TabWidth = 4
+		$2.inheritsSet = Mono
+		$2.inheritsScope = text/plain
+		$2.scope = text/plain
+		$0.TextStylePolicy = $3
+		$3.inheritsSet = null
+		$3.scope = text/x-csharp
+		$0.CSharpFormattingPolicy = $4
+		$4.AnonymousMethodBraceStyle = NextLine
+		$4.PropertyBraceStyle = NextLine
+		$4.PropertyGetBraceStyle = NextLine
+		$4.PropertySetBraceStyle = NextLine
+		$4.EventBraceStyle = NextLine
+		$4.EventAddBraceStyle = NextLine
+		$4.EventRemoveBraceStyle = NextLine
+		$4.StatementBraceStyle = NextLine
+		$4.PlaceElseOnNewLine = True
+		$4.PlaceElseIfOnNewLine = True
+		$4.PlaceCatchOnNewLine = True
+		$4.PlaceFinallyOnNewLine = True
+		$4.BeforeMethodCallParentheses = False
+		$4.BeforeMethodDeclarationParentheses = False
+		$4.BeforeConstructorDeclarationParentheses = False
+		$4.BeforeDelegateDeclarationParentheses = False
+		$4.NewParentheses = False
+		$4.inheritsSet = Mono
+		$4.inheritsScope = text/x-csharp
+		$4.scope = text/x-csharp
+		$0.TextStylePolicy = $5
+		$5.inheritsSet = null
+		$5.scope = application/x-desktop
+		$0.StandardHeader = $6
+		$6.inheritsSet = LGPLv3License
+	EndGlobalSection
+EndGlobal
