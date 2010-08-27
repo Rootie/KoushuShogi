@@ -87,7 +87,7 @@ namespace Shogiban
 
 			Assembly asm = Assembly.GetExecutingAssembly ();
 			
-			dialog.Name = (asm.GetCustomAttributes (
+			dialog.ProgramName = (asm.GetCustomAttributes (
 				typeof(AssemblyTitleAttribute), false)[0]
 				as AssemblyTitleAttribute).Title;
 			
@@ -177,6 +177,10 @@ namespace Shogiban
 			}
 			
 			fd.Destroy();
+		}
+		protected virtual void OnUndoActionActivated(object sender, System.EventArgs e)
+		{
+			game.Undo();
 		}
 	}
 }

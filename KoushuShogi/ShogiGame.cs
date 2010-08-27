@@ -66,7 +66,7 @@ namespace Shogiban
 		public FieldInfo[,] Board = new FieldInfo[BOARD_SIZE, BOARD_SIZE];
 		public int[,] OnHandPieces = new int[PLAYER_COUNT, (int)PieceType.PIECE_TYPES_COUNT];
 
-		public System.Collections.Generic.List<Move> Moves = new System.Collections.Generic.List<Move>();
+		public System.Collections.Generic.List<ExtendedMove> Moves = new System.Collections.Generic.List<ExtendedMove>();
 
 		public IPlayerEngine BlackPlayerEngine;
 		public IPlayerEngine WhitePlayerEngine;
@@ -186,9 +186,6 @@ namespace Shogiban
 				}
 				break;
 			case LocalPlayerMoveState.PickDestination:
-				int from_x = LocalPlayerMove.From.x;
-				int from_y = LocalPlayerMove.From.y;
-			
 				if (Board[x, y].Direction == ((CurPlayer == BlackPlayer) ? PieceDirection.UP : PieceDirection.DOWN)
 				    && Board[x, y].Piece != PieceType.NONE)
 				{
@@ -275,6 +272,35 @@ namespace Shogiban
 			(CurPlayerEngine as LocalPlayer).MakeMove(LocalPlayerMove);
 			LocalPlayerMove = new Move();
 		}
+		
+		public void Undo()
+		{
+			if (Moves.Count < 1
+				|| (!(BlackPlayerEngine is LocalPlayer) && !(WhitePlayerEngine is LocalPlayer)))
+				return;
+			
+			//restore last move
+			RestorePosition(Moves[Moves.Count - 1]);
+			RemoveLastMove();
+			
+			if (!(BlackPlayerEngine is LocalPlayer && WhitePlayerEngine is LocalPlayer))
+			{
+				if (!(CurPlayerEngine is LocalPlayer))
+				{
+					//restore second to last move
+					RestorePosition(Moves[Moves.Count - 1]);
+					RemoveLastMove();
+				}
+				
+				BlackPlayerEngine.Undo();
+				WhitePlayerEngine.Undo();
+			}
+
+			if (CurPlayerEngine is LocalPlayer)
+				localPlayerMoveState = LocalPlayerMoveState.PickSource;
+
+			OnPiecesChanged();
+		}
 #endregion
 		public void SetDefaultBoard()
 		{
@@ -338,9 +364,31 @@ namespace Shogiban
 			OnPiecesChanged();
 		}
 
+		private void RestorePosition(ExtendedMove LastMove)
+		{
+			Board = (FieldInfo[,])LastMove.OriginalPosition.Board.Clone();
+			OnHandPieces = (int[,])LastMove.OriginalPosition.OnHandPieces.Clone();
+			CurPlayer = LastMove.OriginalPosition.CurPlayer == PieceDirection.UP ? BlackPlayer : WhitePlayer;
+			CurPlayerEngine = LastMove.OriginalPosition.CurPlayer == PieceDirection.UP ? BlackPlayerEngine : WhitePlayerEngine;
+		}
+		
+		private Position GetCurPosition()
+		{
+			Position CurPosition;
+			CurPosition.Board = (FieldInfo[,])Board.Clone();
+			CurPosition.OnHandPieces = (int[,])OnHandPieces.Clone();
+			CurPosition.CurPlayer = CurPlayer == BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN;
+			
+			return CurPosition;
+		}
+
 		private void AddMove(Move move)
 		{
-			Moves.Add(move);
+			ExtendedMove ExMove;
+			ExMove.move = move;
+			ExMove.OriginalPosition = GetCurPosition();
+			
+			Moves.Add(ExMove);
 			
 			//if a piece was captured add it to the own pieces on hand
 			if (Board[move.To.x, move.To.y].Piece != PieceType.NONE)
@@ -367,6 +415,11 @@ namespace Shogiban
 			
 			OnPiecesChanged();
 			OnMoveAdded(move);
+		}
+		
+		private void RemoveLastMove()
+		{
+			Moves.RemoveAt(Moves.Count - 1);
 		}
 
 		private void ClearMoves()
@@ -1142,6 +1195,13 @@ namespace Shogiban
 		}
 	}
 	
+	public struct Position
+	{
+		public FieldInfo[,] Board;
+		public int[,] OnHandPieces;
+		public PieceDirection CurPlayer;
+	}
+	
 	public class ValidMoves : System.Collections.Generic.List<BoardField>
 	{
 		public ValidMoves() : base(Game.BOARD_SIZE*Game.BOARD_SIZE) {}
@@ -1189,6 +1249,12 @@ namespace Shogiban
 			
 			return s;
 		}
+	}
+	
+	public struct ExtendedMove
+	{
+		public Move move;
+		public Position OriginalPosition;
 	}
 
 	public enum GameState

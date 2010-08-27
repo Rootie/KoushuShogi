@@ -342,11 +342,12 @@ namespace Shogiban
 			//highlight last move
 			if (gi.Moves.Count > 0)
 			{
-				if (gi.Moves[gi.Moves.Count-1].OnHandPiece == PieceType.NONE)
+				Move move = gi.Moves[gi.Moves.Count-1].move;
+				if (move.OnHandPiece == PieceType.NONE)
 				{
-					cr.Rectangle((Game.BOARD_SIZE - gi.Moves[gi.Moves.Count-1].From.x - 1) * FIELD_SIZE, gi.Moves[gi.Moves.Count-1].From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
+					cr.Rectangle((Game.BOARD_SIZE - move.From.x - 1) * FIELD_SIZE, move.From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
 				}
-				cr.Rectangle((Game.BOARD_SIZE - gi.Moves[gi.Moves.Count-1].To.x - 1) * FIELD_SIZE, gi.Moves[gi.Moves.Count-1].To.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
+				cr.Rectangle((Game.BOARD_SIZE - move.To.x - 1) * FIELD_SIZE, move.To.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
 				cr.Color = LastMoveFieldColor;
 				cr.Fill();
 			}

@@ -156,6 +156,26 @@ namespace Shogiban
 			//retrieve next move
 			ReadNextMove();
 		}
+		
+		public void Undo()
+		{
+			if (!Playing)
+				return;
+			
+			SendToShogiProc("remove");
+		}
+		
+		public event EventHandler<MoveReadyEventArgs> MoveReady;
+		public event EventHandler<ResignEventArgs> Resign;
+		#endregion
+
+		#region IDisposable implementation
+		public void Dispose ()
+		{
+			SendToShogiProc("quit");
+			ShogiProc.Close ();
+		}
+		#endregion
 
 		private PieceType GetPieceByName(Char Name)
 		{
@@ -218,24 +238,6 @@ namespace Shogiban
 			return move;
 		}
 
-		public string Name
-		{
-			get;
-			set;
-		}
-		
-		public event EventHandler<MoveReadyEventArgs> MoveReady;
-		public event EventHandler<ResignEventArgs> Resign;
-		#endregion
-
-		#region IDisposable implementation
-		public void Dispose ()
-		{
-			SendToShogiProc("quit");
-			ShogiProc.Close ();
-		}
-		#endregion
-
 		private void SetPositionForPlayer(FieldInfo[,] Board, int[,] OnHandPieces, bool BlackPlayer)
 		{
 			PieceDirection Direction = BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN;
@@ -284,11 +286,6 @@ namespace Shogiban
 		{
 			String output = ReadFromShogiProc();
 			
-			//if (output.Contains("mate"))
-			//{
-			//	return;
-			//}
-			
 			try
 			{
 				int StartIdx = output.IndexOf(".. ");
@@ -324,7 +321,7 @@ namespace Shogiban
 		{
 			ShogiProc.StandardInput.WriteLine (cmd);
 #if DEBUG
-			System.Console.WriteLine(Name + " -> " + cmd);
+			System.Console.WriteLine(ShogiProc.Id + " -> " + cmd);
 #endif
 		}
 		
@@ -345,7 +342,7 @@ namespace Shogiban
 			}
 			
 #if DEBUG
-			System.Console.WriteLine(Name + " <- " + output);
+			System.Console.WriteLine(ShogiProc.Id + " <- " + output);
 #endif
 			return output;
 		}
@@ -355,7 +352,7 @@ namespace Shogiban
 		private void HandleShogiProcOutputDataReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
 		{
 #if DEBUG
-			System.Console.WriteLine(Name + " <- " + e.Data + " (Handler)");
+			System.Console.WriteLine(ShogiProc.Id + " <- " + e.Data + " (Handler)");
 #endif
 			StdOutLines.Add(e.Data);
 			ReadSem.Release();

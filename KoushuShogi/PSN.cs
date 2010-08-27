@@ -35,9 +35,9 @@ namespace Shogiban.FileFormat
 			data.AppendLine();
 			
 			int MoveNr = 1;
-			foreach (Move move in game.Moves)
+			foreach (ExtendedMove ExMove in game.Moves)
 			{
-				data.Append(MoveNr + "." + move.ToString() + " ");
+				data.Append(MoveNr + "." + ExMove.move.ToString() + " ");
 				MoveNr++;
 			}
 			

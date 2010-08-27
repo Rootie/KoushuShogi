@@ -49,6 +49,13 @@
         <property name="StockId">gtk-save</property>
         <signal name="Activated" handler="OnSaveGameActionActivated" />
       </action>
+      <action id="undoAction">
+        <property name="Type">Action</property>
+        <property name="Label" translatable="yes">Undo</property>
+        <property name="ShortLabel" translatable="yes">Undo</property>
+        <property name="StockId">gtk-undo</property>
+        <signal name="Activated" handler="OnUndoActionActivated" />
+      </action>
     </action-group>
     <property name="MemberName" />
     <property name="Title" translatable="yes">Koushu Shogi</property>
@@ -86,6 +93,7 @@
               <node type="Toolitem" action="quitAction" />
               <node type="Toolitem" action="NewGameAction" />
               <node type="Toolitem" action="saveAction" />
+              <node type="Toolitem" action="undoAction" />
             </node>
           </widget>
           <packing>

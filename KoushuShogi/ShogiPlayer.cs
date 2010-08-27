@@ -34,6 +34,7 @@ namespace Shogiban
 		void StartGame(bool Blackplayer, FieldInfo[,] Board, int[,] OnHandPieces);
 		void EndGame();
 		void OponentMove(Move move);
+		void Undo();
 		
 		event EventHandler<MoveReadyEventArgs> MoveReady;
 		event EventHandler<ResignEventArgs> Resign;
@@ -76,15 +77,15 @@ namespace Shogiban
 		{
 		}
 		
-		public void OponentMove (Move move)
+		public void OponentMove(Move move)
 		{
 			OnNeedMove(new EventArgs());
 		}
-
-		public string Name {
-			get;
-			set;
+		
+		public void Undo()
+		{
 		}
+
 		#endregion
 
 		#region IDisposable implementation
