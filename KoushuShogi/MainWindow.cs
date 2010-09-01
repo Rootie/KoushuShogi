@@ -27,16 +27,23 @@ namespace Shogiban
 {
 	public partial class MainWindow : Gtk.Window
 	{
+		private static string[] authors = new string[] { "Gerhard Götz <rootie232@googlemail.com>" };
+
 		private Game game;
+		private int CurMoveNr = -1;
 
 		public MainWindow() : base(Gtk.WindowType.Toplevel)
 		{
 			this.Build();
 			
 			game = new Game();
+			UpdateMoveNavigationControls();
 			
 			game.GameStateChanged += HandleGameGameStateChanged;
 			game.CurPlayerChanged += HandleGameCurPlayerChanged;
+			game.MoveAdded += HandleGameMoveAdded;
+			game.MoveRemoved += HandleGameMoveRemoved;
+			game.MovesChanged += HandleGameMovesChanged;
 			
 			game.SetDefaultBoard();
 			
@@ -48,17 +55,86 @@ namespace Shogiban
 			game.WhitePlayerEngine = new GnuShogiPlayer();
 			game.WhitePlayer.Name = "white";
 			
-			shogibansvg1.game = game;
+			ShogibanBoardView.game = game;
 			
 			game.StartGame();
 		}
 
-		void HandleGameCurPlayerChanged(object sender, EventArgs e)
+		void HandleGameMovesChanged(object sender, EventArgs e)
+		{
+			(MovesCB.Model as ListStore).Clear();
+			MovesCB.AppendText("Game Started");
+			MovesCB.Active = 0;
+			UpdateMoveNavigationControls();
+		}
+
+		void HandleGameMoveAdded(object sender, MoveAddedEventArgs e)
+		{
+			MovesCB.AppendText(game.Moves.Count + ": " + e.move.ToString());
+			UpdateMoveNavigationControls();
+		}
+
+		void HandleGameMoveRemoved(object sender, EventArgs e)
+		{
+			MovesCB.RemoveText(game.Moves.Count + 1);
+			UpdateMoveNavigationControls();
+		}
+
+		private String GetTurningPlayerString()
+		{
+			String str = String.Empty;
+			str += game.CurPlayer == game.BlackPlayer ? "Black " : "White ";
+			if (game.CurPlayer.Name != String.Empty)
+			{
+				str += "(" + game.CurPlayer.Name + ") ";
+			}
+			str += "moves.";
+			return str;
+		}
+
+		private void UpdateMoveNavigationControls()
+		{
+			bool CanBack = CurMoveNr != 0 && game.Moves.Count > 0;
+			bool CanForward = CurMoveNr >= 0 && CurMoveNr < game.Moves.Count;
+			
+			FirstMoveBtn.Sensitive = CanBack;
+			PrevMoveBtn.Sensitive = CanBack;
+			LastMoveBtn.Sensitive = CanForward;
+			NextMoveBtn.Sensitive = CanForward;
+			
+			if (CurMoveNr < 0)
+			{
+				if (game.Moves.Count > 0)
+					MovesCB.Active = game.Moves.Count;
+			}
+			else
+			{
+				MovesCB.Active = CurMoveNr;
+			}
+			
+			ShogibanBoardView.ShowMoveNr(CurMoveNr);
+		}
+
+		private void SetStatusBarText(String Text)
+		{
+			statusbar.Pop(0);
+			statusbar.Push(0, Text);
+		}
+
+		private void Quit()
+		{
+			game.BlackPlayerEngine.Dispose();
+			game.WhitePlayerEngine.Dispose();
+			
+			Application.Quit();
+		}
+
+		private void HandleGameCurPlayerChanged(object sender, EventArgs e)
 		{
 			SetStatusBarText(GetTurningPlayerString());
 		}
 
-		void HandleGameGameStateChanged(object sender, EventArgs e)
+		private void HandleGameGameStateChanged(object sender, EventArgs e)
 		{
 			if (game.gameState == GameState.Review)
 			{
@@ -112,36 +188,6 @@ namespace Shogiban
 			dialog.Destroy ();
 		}
 		
-		private static string [] authors = new string [] {
-			"Gerhard Götz <rootie232@googlemail.com>"
-		};
-		
-		private void Quit()
-		{
-			game.BlackPlayerEngine.Dispose();
-			game.WhitePlayerEngine.Dispose();
-			
-			Application.Quit();
-		}
-		
-		private String GetTurningPlayerString()
-		{
-			String str = String.Empty;
-			str += game.CurPlayer == game.BlackPlayer ? "Black " : "White ";
-			if (game.CurPlayer.Name != String.Empty)
-			{
-				str += "(" + game.CurPlayer.Name + ") ";
-			}
-			str += "moves.";
-			return str;
-		}
-		
-		private void SetStatusBarText(String Text)
-		{
-			statusbar.Pop(0);
-			statusbar.Push(0, Text);
-		}
-		
 		protected virtual void OnNewGameActionActivated(object sender, System.EventArgs e)
 		{
 			game.SetDefaultBoard();
@@ -178,9 +224,61 @@ namespace Shogiban
 			
 			fd.Destroy();
 		}
+		
 		protected virtual void OnUndoActionActivated(object sender, System.EventArgs e)
 		{
+			CurMoveNr = -1;
 			game.Undo();
+		}
+		
+		protected virtual void OnFirstMoveBtnClicked(object sender, System.EventArgs e)
+		{
+			CurMoveNr = 0;
+			UpdateMoveNavigationControls();
+		}
+		
+		protected virtual void OnPrevMoveBtnClicked(object sender, System.EventArgs e)
+		{
+			if (CurMoveNr > 0)
+			{
+				CurMoveNr = CurMoveNr - 1;
+				UpdateMoveNavigationControls();
+			}
+			else if (CurMoveNr < 0)
+			{
+				CurMoveNr = game.Moves.Count - 1;
+				UpdateMoveNavigationControls();
+			}
+		}
+		
+		protected virtual void OnNextMoveBtnClicked(object sender, System.EventArgs e)
+		{
+			if (CurMoveNr < game.Moves.Count && CurMoveNr >= 0)
+			{
+				CurMoveNr = CurMoveNr + 1;
+				if (CurMoveNr == game.Moves.Count)
+					CurMoveNr = -1;
+				UpdateMoveNavigationControls();
+			}
+		}
+		
+		protected virtual void OnLastMoveBtnClicked(object sender, System.EventArgs e)
+		{
+			CurMoveNr = -1;
+			UpdateMoveNavigationControls();
+		}
+		
+		protected virtual void OnMovesCBChanged(object sender, System.EventArgs e)
+		{
+			if (MovesCB.Active == game.Moves.Count)
+			{
+				CurMoveNr = -1;
+			}
+			else
+			{
+				CurMoveNr = MovesCB.Active;
+			}
+			UpdateMoveNavigationControls();
 		}
 	}
 }

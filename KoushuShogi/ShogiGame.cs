@@ -364,15 +364,7 @@ namespace Shogiban
 			OnPiecesChanged();
 		}
 
-		private void RestorePosition(ExtendedMove LastMove)
-		{
-			Board = (FieldInfo[,])LastMove.OriginalPosition.Board.Clone();
-			OnHandPieces = (int[,])LastMove.OriginalPosition.OnHandPieces.Clone();
-			CurPlayer = LastMove.OriginalPosition.CurPlayer == PieceDirection.UP ? BlackPlayer : WhitePlayer;
-			CurPlayerEngine = LastMove.OriginalPosition.CurPlayer == PieceDirection.UP ? BlackPlayerEngine : WhitePlayerEngine;
-		}
-		
-		private Position GetCurPosition()
+		public Position GetCurPosition()
 		{
 			Position CurPosition;
 			CurPosition.Board = (FieldInfo[,])Board.Clone();
@@ -382,6 +374,14 @@ namespace Shogiban
 			return CurPosition;
 		}
 
+		private void RestorePosition(ExtendedMove LastMove)
+		{
+			Board = (FieldInfo[,])LastMove.OriginalPosition.Board.Clone();
+			OnHandPieces = (int[,])LastMove.OriginalPosition.OnHandPieces.Clone();
+			CurPlayer = LastMove.OriginalPosition.CurPlayer == PieceDirection.UP ? BlackPlayer : WhitePlayer;
+			CurPlayerEngine = LastMove.OriginalPosition.CurPlayer == PieceDirection.UP ? BlackPlayerEngine : WhitePlayerEngine;
+		}
+		
 		private void AddMove(Move move)
 		{
 			ExtendedMove ExMove;
@@ -420,11 +420,15 @@ namespace Shogiban
 		private void RemoveLastMove()
 		{
 			Moves.RemoveAt(Moves.Count - 1);
+			
+			OnMoveRemoved();
 		}
 
 		private void ClearMoves()
 		{
 			Moves.Clear();
+			
+			OnMovesChanged();
 		}
 
 		private void AddOnHandPiece(Player player, PieceType Piece)
@@ -1043,8 +1047,24 @@ namespace Shogiban
 				MoveAdded(this, new MoveAddedEventArgs(move));
 			}
 		}
+		protected void OnMoveRemoved()
+		{
+			if (MoveRemoved != null)
+			{
+				MoveRemoved(this, new EventArgs());
+			}
+		}
+		protected void OnMovesChanged()
+		{
+			if (MovesChanged != null)
+			{
+				MovesChanged(this, new EventArgs());
+			}
+		}
 
 		public event EventHandler<MoveAddedEventArgs> MoveAdded;
+		public event EventHandler MoveRemoved;
+		public event EventHandler MovesChanged;
 		public event EventHandler PiecesChanged;
 		public event EventHandler CurPlayerChanged;
 		public event EventHandler GameStateChanged;

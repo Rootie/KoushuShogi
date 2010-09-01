@@ -62,6 +62,7 @@ namespace Shogiban
 		private Rsvg.Handle GyokushouGraphic;
 		
 		private Game gi = null;
+		private int CurMoveNr = -1;
 		private double ScaleFactor = 1;
 		
 		public Game game
@@ -84,6 +85,12 @@ namespace Shogiban
 			Events |= Gdk.EventMask.ButtonPressMask;
 		}
 		
+		public void ShowMoveNr(int MoveNr)
+		{
+			CurMoveNr = MoveNr;
+			RedrawBoard();
+		}
+		
 		//TODO remove these two variables
 		double mouse_x = 0;
 		double mouse_y = 0;
@@ -93,6 +100,10 @@ namespace Shogiban
 			mouse_x = ev.X * (1 / ScaleFactor);
 			mouse_y = ev.Y * (1 / ScaleFactor);
 			RedrawBoard();
+			
+			//don't accept any inputs when reviewing past positions
+			if (CurMoveNr >= 0)
+				return true;
 			
 			if (gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion)
 			{
@@ -145,15 +156,25 @@ namespace Shogiban
 			cr.Save();
 			cr.Translate(PADDING, PADDING);
 			
+			Position pos;
+			if (CurMoveNr < 0)
+			{
+				pos = game.GetCurPosition();
+			}
+			else
+			{
+				pos = game.Moves[CurMoveNr].OriginalPosition;
+			}
+			
 			cr.Save();
-			DrawOnHandPieces(cr, false);
+			DrawOnHandPieces(cr, pos, false);
 			cr.Translate(ON_HAND_AREA_WIDTH + 9 * FIELD_SIZE + 2 * FIELD_NAMING_SIZE + 2 * PADDING, 0);
-			DrawOnHandPieces(cr, true);
+			DrawOnHandPieces(cr, pos, true);
 			cr.Restore();
 			
 			cr.Save();
 			cr.Translate(ON_HAND_AREA_WIDTH + PADDING, 0);
-			DrawBoard(cr);
+			DrawBoard(cr, pos);
 			cr.Restore();
 			
 			cr.Restore();
@@ -276,7 +297,7 @@ namespace Shogiban
 			//TODO check if pieces are correctly loaded
 		}
 		
-		private void DrawBoard(Context cr)
+		private void DrawBoard(Context cr, Position pos)
 		{
 			#region board border
 			//Top
@@ -340,9 +361,14 @@ namespace Shogiban
 			}
 
 			//highlight last move
-			if (gi.Moves.Count > 0)
+			if (gi.Moves.Count > 0 && CurMoveNr != 0)
 			{
-				Move move = gi.Moves[gi.Moves.Count-1].move;
+				Move move;
+				if (CurMoveNr < 0)
+					move = gi.Moves[gi.Moves.Count-1].move;
+				else
+					move = gi.Moves[CurMoveNr - 1].move;
+				
 				if (move.OnHandPiece == PieceType.NONE)
 				{
 					cr.Rectangle((Game.BOARD_SIZE - move.From.x - 1) * FIELD_SIZE, move.From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
@@ -390,7 +416,7 @@ namespace Shogiban
 			cr.Stroke();
 			#endregion
 	
-			DrawPieces(cr);
+			DrawPieces(cr, pos);
 			
 			//draw promotion choice area
 			if (gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion)
@@ -418,7 +444,7 @@ namespace Shogiban
 			}
 		}
 
-		private void DrawPieces(Context cr)
+		private void DrawPieces(Context cr, Position pos)
 		{
 			if (gi == null)
 				return;
@@ -427,15 +453,17 @@ namespace Shogiban
 			for (int x = 0; x < Game.BOARD_SIZE; x++)
 				for (int y = 0; y < Game.BOARD_SIZE; y++)
 				{
-					DrawPiece(cr, gi.Board[x,y].Piece, gi.Board[x, y].Direction, (Game.BOARD_SIZE - x - 1) * FIELD_SIZE, y * FIELD_SIZE);
+					DrawPiece(cr, pos.Board[x,y].Piece, pos.Board[x, y].Direction, (Game.BOARD_SIZE - x - 1) * FIELD_SIZE, y * FIELD_SIZE);
 				}
 		}
 		
-		private void DrawOnHandPieces(Context cr, bool BlackPlayer)
+		private void DrawOnHandPieces(Context cr, Position pos, bool BlackPlayer)
 		{
 			cr.Save();
 			cr.Rectangle(0, 0, ON_HAND_AREA_WIDTH, 9 * FIELD_SIZE + 2 * FIELD_NAMING_SIZE);
-			//cr.Fill();
+			cr.Color = BorderColor;
+			cr.FillPreserve();
+			cr.Color = new Color(0.6, 0.5, 0.55);
 			cr.LineWidth = 3;
 			cr.Stroke();
 			
@@ -447,7 +475,7 @@ namespace Shogiban
 			for (int i = 0; i < (int)PieceType.PIECE_TYPES_COUNT; i++)
 			{
 				int player_nr = BlackPlayer ? 0 : 1;
-				if (gi.OnHandPieces[player_nr, i] != 0)
+				if (pos.OnHandPieces[player_nr, i] != 0)
 				{
 					//highlight selected piece
 					if (gi.localPlayerMoveState != LocalPlayerMoveState.Wait
@@ -519,7 +547,7 @@ namespace Shogiban
 			cr.Restore();
 		}
 
-		void HandleGiPiecesChanged(object sender, EventArgs e)
+		private void HandleGiPiecesChanged(object sender, EventArgs e)
 		{
 			Gtk.Application.Invoke(delegate { RedrawBoard(); });
 		}
