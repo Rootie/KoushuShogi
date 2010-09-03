@@ -35,22 +35,22 @@ namespace Shogiban
 		private const double PADDING = 10;
 		
 		//helper constants
-		private const double PLAYFIELD_SIZE = Game.BOARD_SIZE * FIELD_SIZE;
-		private const double ON_HAND_AREA_HEIGHT = FIELD_NAMING_SIZE + PLAYFIELD_SIZE + FIELD_NAMING_SIZE;
+		private static readonly double PLAYFIELD_SIZE = Game.BOARD_SIZE * FIELD_SIZE;
+		private static readonly double ON_HAND_AREA_HEIGHT = FIELD_NAMING_SIZE + PLAYFIELD_SIZE + FIELD_NAMING_SIZE;
 		
 		//helper constants for hit testing
 		private const double PLAYFIELD_X_START = PADDING + ON_HAND_AREA_WIDTH + PADDING + FIELD_NAMING_SIZE;
-		private const double PLAYFIELD_X_END   = PLAYFIELD_X_START + PLAYFIELD_SIZE;
+		private static readonly double PLAYFIELD_X_END   = PLAYFIELD_X_START + PLAYFIELD_SIZE;
 		private const double PLAYFIELD_Y_START = PADDING + FIELD_NAMING_SIZE;
-		private const double PLAYFIELD_Y_END = PLAYFIELD_Y_START + PLAYFIELD_SIZE;
+		private static readonly double PLAYFIELD_Y_END = PLAYFIELD_Y_START + PLAYFIELD_SIZE;
 		private const double WHITE_ON_HAND_AREA_X_START = PADDING;
 		private const double WHITE_ON_HAND_AREA_X_END   = WHITE_ON_HAND_AREA_X_START + ON_HAND_AREA_WIDTH;
 		private const double WHITE_ON_HAND_AREA_Y_START = PADDING;
-		private const double WHITE_ON_HAND_AREA_Y_END   = WHITE_ON_HAND_AREA_Y_START + ON_HAND_AREA_HEIGHT;
-		private const double BLACK_ON_HAND_AREA_X_START = PLAYFIELD_X_END + FIELD_NAMING_SIZE + PADDING;
-		private const double BLACK_ON_HAND_AREA_X_END   = BLACK_ON_HAND_AREA_X_START + ON_HAND_AREA_WIDTH;
+		private static readonly double WHITE_ON_HAND_AREA_Y_END   = WHITE_ON_HAND_AREA_Y_START + ON_HAND_AREA_HEIGHT;
+		private static readonly double BLACK_ON_HAND_AREA_X_START = PLAYFIELD_X_END + FIELD_NAMING_SIZE + PADDING;
+		private static readonly double BLACK_ON_HAND_AREA_X_END   = BLACK_ON_HAND_AREA_X_START + ON_HAND_AREA_WIDTH;
 		private const double BLACK_ON_HAND_AREA_Y_START = PADDING;
-		private const double BLACK_ON_HAND_AREA_Y_END   = BLACK_ON_HAND_AREA_Y_START + ON_HAND_AREA_HEIGHT;
+		private static readonly double BLACK_ON_HAND_AREA_Y_END   = BLACK_ON_HAND_AREA_Y_START + ON_HAND_AREA_HEIGHT;
 		
 		private Color BoardColor         = new Color(168 / 255f, 103 / 255f,  54 / 255f);
 		private Color BorderColor        = new Color(210 / 255f, 160 / 255f, 100 / 255f);
@@ -61,7 +61,7 @@ namespace Shogiban
 		private Rsvg.Handle[] PieceGraphics = new Rsvg.Handle[(int)PieceType.PIECE_TYPES_COUNT];
 		private Rsvg.Handle GyokushouGraphic;
 		
-		private Game gi = null;
+		private Game gi;
 		private int CurMoveNr = -1;
 		private double ScaleFactor = 1;
 		
@@ -94,11 +94,11 @@ namespace Shogiban
 		//TODO remove these two variables
 		double mouse_x = 0;
 		double mouse_y = 0;
-		protected override bool OnButtonPressEvent(Gdk.EventButton ev)
+		protected override bool OnButtonPressEvent(Gdk.EventButton evnt)
 		{
 			// Insert button press handling code here.
-			mouse_x = ev.X * (1 / ScaleFactor);
-			mouse_y = ev.Y * (1 / ScaleFactor);
+			mouse_x = evnt.X * (1 / ScaleFactor);
+			mouse_y = evnt.Y * (1 / ScaleFactor);
 			RedrawBoard();
 			
 			//don't accept any inputs when reviewing past positions
@@ -107,8 +107,8 @@ namespace Shogiban
 			
 			if (gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion)
 			{
-				double PromotionChoiceAreaStartX = (Game.BOARD_SIZE - gi.LocalPlayerMove.To.x - 1) * FIELD_SIZE - FIELD_SIZE / 2 + PLAYFIELD_X_START;
-				double PromotionChoiceAreaStartY = gi.LocalPlayerMove.To.y * FIELD_SIZE + PLAYFIELD_Y_START;
+				double PromotionChoiceAreaStartX = (Game.BOARD_SIZE - gi.GetLocalPlayerMove().To.x - 1) * FIELD_SIZE - FIELD_SIZE / 2 + PLAYFIELD_X_START;
+				double PromotionChoiceAreaStartY = gi.GetLocalPlayerMove().To.y * FIELD_SIZE + PLAYFIELD_Y_START;
 
 				if (mouse_y >= PromotionChoiceAreaStartY && mouse_y <= PromotionChoiceAreaStartY + FIELD_SIZE)
 				{
@@ -142,54 +142,59 @@ namespace Shogiban
 			}
 			
 			
-			return base.OnButtonPressEvent (ev);
+			return base.OnButtonPressEvent (evnt);
 		}
 		
-		protected override bool OnExposeEvent(Gdk.EventExpose ev)
+		protected override bool OnExposeEvent(Gdk.EventExpose evnt)
 		{
-			base.OnExposeEvent(ev);
+			base.OnExposeEvent(evnt);
 			// Insert drawing code here.
 			
 			Cairo.Context cr = Gdk.CairoHelper.Create(this.GdkWindow);
 			
-			cr.Scale(ScaleFactor, ScaleFactor);
-			cr.Save();
-			cr.Translate(PADDING, PADDING);
-			
-			Position pos;
-			if (CurMoveNr < 0)
+			try
 			{
-				pos = game.GetCurPosition();
+				cr.Scale(ScaleFactor, ScaleFactor);
+				cr.Save();
+				cr.Translate(PADDING, PADDING);
+			
+				Position pos;
+				if (CurMoveNr < 0)
+				{
+					pos = game.GetCurPosition();
+				}
+				else
+				{
+					pos = game.Moves[CurMoveNr].OriginalPosition;
+				}
+			
+				cr.Save();
+				DrawOnHandPieces(cr, pos, false);
+				cr.Translate(ON_HAND_AREA_WIDTH + 9 * FIELD_SIZE + 2 * FIELD_NAMING_SIZE + 2 * PADDING, 0);
+				DrawOnHandPieces(cr, pos, true);
+				cr.Restore();
+			
+				cr.Save();
+				cr.Translate(ON_HAND_AREA_WIDTH + PADDING, 0);
+				DrawBoard(cr, pos);
+				cr.Restore();
+			
+				cr.Restore();
+			
+				//mouse courser
+				cr.MoveTo(mouse_x - 10, mouse_y - 10);
+				cr.LineTo(mouse_x + 10, mouse_y + 10);
+				cr.MoveTo(mouse_x - 10, mouse_y + 10);
+				cr.LineTo(mouse_x + 10, mouse_y - 10);
+				cr.LineWidth = 1;
+				cr.Color = new Color(0, 0, 0);
+				cr.Stroke();
 			}
-			else
+			finally
 			{
-				pos = game.Moves[CurMoveNr].OriginalPosition;
+				((IDisposable)cr.Target).Dispose();
+				((IDisposable)cr).Dispose();
 			}
-			
-			cr.Save();
-			DrawOnHandPieces(cr, pos, false);
-			cr.Translate(ON_HAND_AREA_WIDTH + 9 * FIELD_SIZE + 2 * FIELD_NAMING_SIZE + 2 * PADDING, 0);
-			DrawOnHandPieces(cr, pos, true);
-			cr.Restore();
-			
-			cr.Save();
-			cr.Translate(ON_HAND_AREA_WIDTH + PADDING, 0);
-			DrawBoard(cr, pos);
-			cr.Restore();
-			
-			cr.Restore();
-			
-			//mouse courser
-			cr.MoveTo(mouse_x - 10, mouse_y - 10);
-			cr.LineTo(mouse_x + 10, mouse_y + 10);
-			cr.MoveTo(mouse_x - 10, mouse_y + 10);
-			cr.LineTo(mouse_x + 10, mouse_y - 10);
-			cr.LineWidth = 1;
-			cr.Color = new Color(0, 0, 0);
-			cr.Stroke();
-			
-			((IDisposable)cr.Target).Dispose();
-			((IDisposable)cr).Dispose();
 
 			return true;
 		}
@@ -317,27 +322,30 @@ namespace Shogiban
 			cr.SetFontSize(FIELD_NAMING_SIZE * 0.9);
 			cr.Color = new Color(0, 0, 0);
 			
-			for (int i = 0; i < Game.VerticalNamings.Length; i++)
+			Char[] VerticalNamings = Game.GetVerticalNamings();
+			Char[] HorizontalNamings = Game.GetHorizontalNamings();
+			
+			for (int i = 0; i < VerticalNamings.Length; i++)
 			{
-				TextExtents extents = cr.TextExtents(Game.VerticalNamings[i].ToString());
+				TextExtents extents = cr.TextExtents(VerticalNamings[i].ToString());
 				double x = (FIELD_NAMING_SIZE/2) - (extents.Width/2 + extents.XBearing);
 				double y = (FIELD_NAMING_SIZE + i*FIELD_SIZE + FIELD_SIZE/2) - (extents.Height/2 + extents.YBearing);
 				
 				cr.MoveTo(x, y);
-				cr.ShowText(Game.VerticalNamings[i].ToString());
+				cr.ShowText(VerticalNamings[i].ToString());
 				cr.MoveTo(x + 9*FIELD_SIZE + FIELD_NAMING_SIZE, y);
-				cr.ShowText(Game.VerticalNamings[i].ToString());
+				cr.ShowText(VerticalNamings[i].ToString());
 			}
-			for (int i = 0; i < Game.HorizontalNamings.Length; i++)
+			for (int i = 0; i < HorizontalNamings.Length; i++)
 			{
-				TextExtents extents = cr.TextExtents(Game.HorizontalNamings[i].ToString());
+				TextExtents extents = cr.TextExtents(HorizontalNamings[i].ToString());
 				double x = (FIELD_NAMING_SIZE + i*FIELD_SIZE + FIELD_SIZE/2) - (extents.Width/2 + extents.XBearing);
 				double y = (FIELD_NAMING_SIZE/2) - (extents.Height/2 + extents.YBearing);
 				
 				cr.MoveTo(x, y);
-				cr.ShowText(Game.HorizontalNamings[Game.BOARD_SIZE-i-1].ToString());
+				cr.ShowText(HorizontalNamings[Game.BOARD_SIZE-i-1].ToString());
 				cr.MoveTo(x, y + 9*FIELD_SIZE + FIELD_NAMING_SIZE);
-				cr.ShowText(Game.HorizontalNamings[Game.BOARD_SIZE-i-1].ToString());
+				cr.ShowText(HorizontalNamings[Game.BOARD_SIZE-i-1].ToString());
 			}
 			#endregion
 			
@@ -352,9 +360,9 @@ namespace Shogiban
 			if (gi.localPlayerMoveState != LocalPlayerMoveState.Wait
 				&& gi.localPlayerMoveState != LocalPlayerMoveState.PickSource)
 			{
-				if (gi.LocalPlayerMove.OnHandPiece == PieceType.NONE)
+				if (gi.GetLocalPlayerMove().OnHandPiece == PieceType.NONE)
 				{
-					cr.Rectangle((Game.BOARD_SIZE - gi.LocalPlayerMove.From.x - 1) * FIELD_SIZE, gi.LocalPlayerMove.From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
+					cr.Rectangle((Game.BOARD_SIZE - gi.GetLocalPlayerMove().From.x - 1) * FIELD_SIZE, gi.GetLocalPlayerMove().From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
 					cr.Color = SelectedFieldColor;
 					cr.Fill();
 				}
@@ -382,13 +390,13 @@ namespace Shogiban
 			if (gi.localPlayerMoveState == LocalPlayerMoveState.PickDestination)
 			{
 				ValidMoves Moves;
-				if (gi.LocalPlayerMove.OnHandPiece == PieceType.NONE)
+				if (gi.GetLocalPlayerMove().OnHandPiece == PieceType.NONE)
 				{
-					Moves = gi.GetValidBoardMoves(new BoardField(gi.LocalPlayerMove.From.x, gi.LocalPlayerMove.From.y));
+					Moves = gi.GetValidBoardMoves(new BoardField(gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y));
 				}
 				else
 				{
-					Moves = gi.GetValidOnHandMoves(gi.LocalPlayerMove.OnHandPiece, gi.CurPlayer == gi.BlackPlayer);
+					Moves = gi.GetValidOnHandMoves(gi.GetLocalPlayerMove().OnHandPiece, gi.CurPlayer == gi.BlackPlayer);
 				}
 				
 				foreach (BoardField Field in Moves)
@@ -421,8 +429,8 @@ namespace Shogiban
 			//draw promotion choice area
 			if (gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion)
 			{
-				double PromotionChoiceAreaStartX = (Game.BOARD_SIZE - gi.LocalPlayerMove.To.x - 1) * FIELD_SIZE - FIELD_SIZE / 2;
-				double PromotionChoiceAreaStartY = gi.LocalPlayerMove.To.y * FIELD_SIZE;
+				double PromotionChoiceAreaStartX = (Game.BOARD_SIZE - gi.GetLocalPlayerMove().To.x - 1) * FIELD_SIZE - FIELD_SIZE / 2;
+				double PromotionChoiceAreaStartY = gi.GetLocalPlayerMove().To.y * FIELD_SIZE;
 				
 				cr.Save();
 				//draw boarder
@@ -437,8 +445,8 @@ namespace Shogiban
 				cr.Color = BoardColor;
 				cr.Fill();
 				
-				DrawPiece(cr, gi.Board[gi.LocalPlayerMove.From.x, gi.LocalPlayerMove.From.y].Piece, gi.Board[gi.LocalPlayerMove.From.x, gi.LocalPlayerMove.From.y].Direction, 0, 0);
-				DrawPiece(cr, gi.Board[gi.LocalPlayerMove.From.x, gi.LocalPlayerMove.From.y].Piece.GetPromotedPiece(), gi.Board[gi.LocalPlayerMove.From.x, gi.LocalPlayerMove.From.y].Direction, FIELD_SIZE, 0);
+				DrawPiece(cr, gi.Board[gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y].Piece, gi.Board[gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y].Direction, 0, 0);
+				DrawPiece(cr, gi.Board[gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y].Piece.GetPromotedPiece(), gi.Board[gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y].Direction, FIELD_SIZE, 0);
 				
 				cr.Restore();	
 			}
@@ -480,8 +488,8 @@ namespace Shogiban
 					//highlight selected piece
 					if (gi.localPlayerMoveState != LocalPlayerMoveState.Wait
 						&& gi.localPlayerMoveState != LocalPlayerMoveState.PickSource
-						&& gi.LocalPlayerMove.OnHandPiece != PieceType.NONE
-						&& gi.LocalPlayerMove.OnHandPiece == (PieceType)i
+						&& gi.GetLocalPlayerMove().OnHandPiece != PieceType.NONE
+						&& gi.GetLocalPlayerMove().OnHandPiece == (PieceType)i
 						&& !((gi.CurPlayer == gi.BlackPlayer) ^ BlackPlayer))
 					{
 						cr.Rectangle(0, 0, FIELD_SIZE, FIELD_SIZE);

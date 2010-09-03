@@ -26,18 +26,21 @@ namespace Shogiban
 {
 	class MainClass
 	{
-		public static void Main (string[] args)
+		public static void Main(string[] args)
 		{
 			//GLib.ExceptionManager.UnhandledException += HandleGLibExceptionManagerUnhandledException;
-			Application.Init ();
-			MainWindow win = new MainWindow ();
-			win.Show ();
-			Application.Run ();
+			Application.Init();
+			using (MainWindow win = new MainWindow())
+			{
+				win.Show();
+				Application.Run();
+			}
 		}
 
+		/*
 		static void HandleGLibExceptionManagerUnhandledException (GLib.UnhandledExceptionArgs args)
 		{
-			Console.WriteLine ("");
 		}
+		*/
 	}
 }

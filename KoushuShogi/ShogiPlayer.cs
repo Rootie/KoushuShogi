@@ -40,19 +40,19 @@ namespace Shogiban
 		event EventHandler<ResignEventArgs> Resign;
 	}
 	
-	[Serializable]
+	//[Serializable]
 	public sealed class MoveReadyEventArgs : EventArgs
 	{
-		public Move move;
+		public Move move { get; private set;}
 		public MoveReadyEventArgs(Move move)
 		{
 			this.move = move;
 		}
 	}
-	[Serializable]
+	//[Serializable]
 	public sealed class ResignEventArgs : EventArgs
 	{
-		public String Message;
+		public String Message { get; private set;}
 		public ResignEventArgs(String Message)
 		{
 			this.Message = Message;

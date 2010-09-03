@@ -84,7 +84,7 @@ namespace Shogiban
 		{
 			String str = String.Empty;
 			str += game.CurPlayer == game.BlackPlayer ? "Black " : "White ";
-			if (game.CurPlayer.Name != String.Empty)
+			if (game.CurPlayer.Name.Length != 0)
 			{
 				str += "(" + game.CurPlayer.Name + ") ";
 			}
@@ -157,35 +157,29 @@ namespace Shogiban
 			Quit();
 		}
 
-		protected virtual void OnAboutActionActivated (object sender, System.EventArgs e)
+		protected virtual void OnAboutActionActivated(object sender, System.EventArgs e)
 		{
-			AboutDialog dialog = new AboutDialog ();
+			using (AboutDialog dialog = new AboutDialog())
+			{
 
-			Assembly asm = Assembly.GetExecutingAssembly ();
+				Assembly asm = Assembly.GetExecutingAssembly();
 			
-			dialog.ProgramName = (asm.GetCustomAttributes (
-				typeof(AssemblyTitleAttribute), false)[0]
-				as AssemblyTitleAttribute).Title;
+				dialog.ProgramName = (asm.GetCustomAttributes(typeof(AssemblyTitleAttribute), false)[0] as AssemblyTitleAttribute).Title;
 			
-			dialog.Version = asm.GetName ().Version.ToString ();
+				dialog.Version = asm.GetName().Version.ToString();
 			
-			dialog.Comments = (asm.GetCustomAttributes (
-				typeof(AssemblyDescriptionAttribute), false)[0]
-				as AssemblyDescriptionAttribute).Description;
+				dialog.Comments = (asm.GetCustomAttributes(typeof(AssemblyDescriptionAttribute), false)[0] as AssemblyDescriptionAttribute).Description;
 			
-			dialog.Copyright = (asm.GetCustomAttributes (
-				typeof(AssemblyCopyrightAttribute), false)[0]
-				as AssemblyCopyrightAttribute).Copyright;
+				dialog.Copyright = (asm.GetCustomAttributes(typeof(AssemblyCopyrightAttribute), false)[0] as AssemblyCopyrightAttribute).Copyright;
 			
-			//TODO
-			//dialog.License = license;
+				//TODO
+				//dialog.License = license;
 			
-			dialog.Authors = authors;
+				dialog.Authors = authors;
 			
-			
-			
-			dialog.Run ();
-			dialog.Destroy ();
+				dialog.Run();
+				dialog.Destroy();
+			}
 		}
 		
 		protected virtual void OnNewGameActionActivated(object sender, System.EventArgs e)
@@ -196,33 +190,41 @@ namespace Shogiban
 		
 		protected virtual void OnSaveGameActionActivated(object sender, System.EventArgs e)
 		{
-			FileChooserDialog fd = new FileChooserDialog("Save shogi game", this, FileChooserAction.Save,
+			using (FileChooserDialog fd = new FileChooserDialog("Save shogi game", this, FileChooserAction.Save,
 				                         				 Gtk.Stock.Cancel, ResponseType.Cancel,
-		                                                 Gtk.Stock.Save, ResponseType.Accept);
-			fd.DoOverwriteConfirmation = true;
-			FileFilter filter;
-
-			filter = new FileFilter();
-			filter.Name = "All files";
-			filter.AddPattern("*");
-			fd.AddFilter(filter);
-
-			filter = new FileFilter();
-			filter.Name = "PSN files";
-			filter.AddPattern("*.psn");
-			fd.AddFilter(filter);
-			fd.Filter = filter;
-			
-			if (fd.Run() == (int)ResponseType.Accept)
+		                                                 Gtk.Stock.Save, ResponseType.Accept))
 			{
-				System.Console.WriteLine("saving file: " + fd.Filename);
-				
-				System.IO.FileStream stream = new System.IO.FileStream(fd.Filename, System.IO.FileMode.Create);
-				Shogiban.FileFormat.PSN.Save(game, stream);
-				stream.Close();
-			}
+				fd.DoOverwriteConfirmation = true;
+				FileFilter filter;
+
+				using (filter = new FileFilter())
+				{
+					filter.Name = "All files";
+					filter.AddPattern("*");
+					fd.AddFilter(filter);
+				}
+
+				using (filter = new FileFilter())
+				{
+					filter.Name = "PSN files";
+					filter.AddPattern("*.psn");
+					fd.AddFilter(filter);
+					fd.Filter = filter;
+				}
 			
-			fd.Destroy();
+				if (fd.Run() == (int)ResponseType.Accept)
+				{
+					System.Console.WriteLine("saving file: " + fd.Filename);
+				
+					using (System.IO.FileStream stream = new System.IO.FileStream(fd.Filename, System.IO.FileMode.Create))
+					{
+						Shogiban.FileFormat.PSN.Save(game, stream);
+						stream.Close();
+					}
+				}
+			
+				fd.Destroy();
+			}
 		}
 		
 		protected virtual void OnUndoActionActivated(object sender, System.EventArgs e)

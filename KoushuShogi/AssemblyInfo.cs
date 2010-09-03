@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System;
 
 // Information about this assembly is defined by the following attributes. 
 // Change them to the values specific to your project.
@@ -24,3 +26,6 @@ using System.Runtime.CompilerServices;
 
 //[assembly: AssemblyDelaySign(false)]
 //[assembly: AssemblyKeyFile("")]
+
+// by default everything in this assembly is not visible to COM consumers
+[assembly: ComVisible(false)]

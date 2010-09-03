@@ -25,11 +25,19 @@ namespace Shogiban
 {
     public class Game
     {
-		public const int BOARD_SIZE = 9;
-		public const int PLAYER_COUNT = 2;
-		public static readonly Char[] VerticalNamings = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i' };
-		public static readonly Char[] HorizontalNamings = { '1', '2', '3', '4', '5', '6', '7', '8', '9' };
-		public static readonly Char[] PieceNamings = {
+		public static readonly int BOARD_SIZE = 9;
+		public static readonly int PLAYER_COUNT = 2;
+		private static readonly Char[] VerticalNamings = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i' };
+		public static Char[] GetVerticalNamings()
+		{
+			return (Char[])VerticalNamings.Clone();
+		}
+		private static readonly Char[] HorizontalNamings = { '1', '2', '3', '4', '5', '6', '7', '8', '9' };
+		public static Char[] GetHorizontalNamings()
+		{
+			return (Char[])HorizontalNamings.Clone();
+		}
+		private static readonly Char[] PieceNamings = {
 			' ', //NONE
 			'P', //FUHYOU    Pawn
 			' ', //TOKIN     Promoted Pawn
@@ -46,6 +54,10 @@ namespace Shogiban
 			' ', //RYUUOU    Promoted Rook (Dragon)
 			' '  //OUSHOU    King
 		};
+		public static Char[] GetPieceNamings()
+		{
+			return (Char[])PieceNamings.Clone();
+		}
 
 		private GameState _gameState = GameState.Review;
 		public GameState gameState
@@ -68,8 +80,24 @@ namespace Shogiban
 
 		public System.Collections.Generic.List<ExtendedMove> Moves = new System.Collections.Generic.List<ExtendedMove>();
 
-		public IPlayerEngine BlackPlayerEngine;
-		public IPlayerEngine WhitePlayerEngine;
+		private IPlayerEngine _BlackPlayerEngine;
+		public IPlayerEngine BlackPlayerEngine
+		{
+			get { return _BlackPlayerEngine; }
+			set
+			{
+				SetPlayerEngine(ref _BlackPlayerEngine, value);
+			}
+		}
+		private IPlayerEngine _WhitePlayerEngine;
+		public IPlayerEngine WhitePlayerEngine
+		{
+			get { return _WhitePlayerEngine; }
+			set 
+			{
+				SetPlayerEngine(ref _WhitePlayerEngine, value);
+			}
+		}
 		private IPlayerEngine CurPlayerEngine;
 		public Player BlackPlayer
 		{
@@ -98,9 +126,14 @@ namespace Shogiban
 			private set;
 		}
 		
-		public LocalPlayerMoveState localPlayerMoveState;
-		public Move LocalPlayerMove;
+		public LocalPlayerMoveState localPlayerMoveState { get; private set;}
+		private Move _LocalPlayerMove;
+		public Move GetLocalPlayerMove()
+		{
+			return _LocalPlayerMove;
+		}
 
+		//ctor
 		public Game()
 		{
 			BlackPlayer = new Player();
@@ -119,20 +152,6 @@ namespace Shogiban
         	CurPlayerEngine = BlackPlayerEngine;
         	CurPlayer = BlackPlayer;
    
-        	BlackPlayerEngine.MoveReady += HandleMoveReady;
-        	BlackPlayerEngine.Resign += HandleResign;
-        	WhitePlayerEngine.MoveReady += HandleMoveReady;
-        	WhitePlayerEngine.Resign += HandleResign;
-   
-			if (BlackPlayerEngine is LocalPlayer)
-        	{
-        		(BlackPlayerEngine as LocalPlayer).NeedMove += HandleNeedMove;
-        	}
-        	if (WhitePlayerEngine is LocalPlayer)
-        	{
-        		(WhitePlayerEngine as LocalPlayer).NeedMove += HandleNeedMove;
-        	}
-   
 			gameState = GameState.Playing;
         	WhitePlayerEngine.StartGame(false, Board, OnHandPieces);
         	BlackPlayerEngine.StartGame(true, Board, OnHandPieces);
@@ -147,11 +166,6 @@ namespace Shogiban
 		{
 			GameFinishedReason = Reason;
 			gameState = GameState.Review;
-			
-			BlackPlayerEngine.MoveReady -= HandleMoveReady;
-			BlackPlayerEngine.Resign -= HandleResign;
-			WhitePlayerEngine.MoveReady -= HandleMoveReady;
-			WhitePlayerEngine.Resign -= HandleResign;
 			
 			BlackPlayerEngine.EndGame();
 			WhitePlayerEngine.EndGame();
@@ -178,9 +192,9 @@ namespace Shogiban
 			case LocalPlayerMoveState.PickSource:
 				if (Board[x, y].Piece != PieceType.NONE && Board[x, y].Direction == (CurPlayer == BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN))
 				{
-					LocalPlayerMove.OnHandPiece = PieceType.NONE;
-					LocalPlayerMove.From.x = x;
-					LocalPlayerMove.From.y = y;
+					_LocalPlayerMove.OnHandPiece = PieceType.NONE;
+					_LocalPlayerMove.From.x = x;
+					_LocalPlayerMove.From.y = y;
 					
 					localPlayerMoveState = LocalPlayerMoveState.PickDestination;
 				}
@@ -193,10 +207,10 @@ namespace Shogiban
 					return;
 				}
 				
-				LocalPlayerMove.To.x = x;
-				LocalPlayerMove.To.y = y;
+				_LocalPlayerMove.To.x = x;
+				_LocalPlayerMove.To.y = y;
 				
-				Move NewMove = new Move(LocalPlayerMove);
+				Move NewMove = new Move(_LocalPlayerMove);
 				NewMove.To.x = x;
 				NewMove.To.y = y;
 				
@@ -216,7 +230,7 @@ namespace Shogiban
 				else if (!NormalMoveValid && PromotedMoveValid)
 				{
 					//forced promotion. move complete
-					LocalPlayerMove.promote = true;
+					_LocalPlayerMove.promote = true;
 					FinishLocalPlayerMove();
 				}
 				else
@@ -241,13 +255,13 @@ namespace Shogiban
 				return;
 			case LocalPlayerMoveState.PickSource:
 				{
-					LocalPlayerMove.OnHandPiece = piece;
+					_LocalPlayerMove.OnHandPiece = piece;
 					localPlayerMoveState = LocalPlayerMoveState.PickDestination;
 				}
 				break;
 			case LocalPlayerMoveState.PickDestination:
 				{
-					LocalPlayerMove.OnHandPiece = PieceType.NONE;
+					_LocalPlayerMove.OnHandPiece = PieceType.NONE;
 					localPlayerMoveState = LocalPlayerMoveState.PickSource;
 				}
 				break;
@@ -260,7 +274,7 @@ namespace Shogiban
 		{
 			//TODO switch (localPlayerMoveState)
 			System.Console.WriteLine("Promotion choosen: " + promote.ToString());
-			LocalPlayerMove.promote = promote;
+			_LocalPlayerMove.promote = promote;
 			
 			//move complete. send it to the player
 			FinishLocalPlayerMove();
@@ -269,8 +283,8 @@ namespace Shogiban
 		private void FinishLocalPlayerMove()
 		{
 			localPlayerMoveState = LocalPlayerMoveState.Wait;
-			(CurPlayerEngine as LocalPlayer).MakeMove(LocalPlayerMove);
-			LocalPlayerMove = new Move();
+			(CurPlayerEngine as LocalPlayer).MakeMove(_LocalPlayerMove);
+			_LocalPlayerMove = new Move();
 		}
 		
 		public void Undo()
@@ -374,6 +388,7 @@ namespace Shogiban
 			return CurPosition;
 		}
 
+		//private methods
 		private void RestorePosition(ExtendedMove LastMove)
 		{
 			Board = (FieldInfo[,])LastMove.OriginalPosition.Board.Clone();
@@ -433,14 +448,38 @@ namespace Shogiban
 
 		private void AddOnHandPiece(Player player, PieceType Piece)
 		{
-			OnHandPieces[CurrentPlayerNumber, (int)Piece]++;
+			OnHandPieces[GetPlayerNumber(player), (int)Piece]++;
 		}
 
 		private void RemoveOnHandPiece(Player player, PieceType Piece)
 		{
-			OnHandPieces[CurrentPlayerNumber, (int)Piece]--;
+			OnHandPieces[GetPlayerNumber(player), (int)Piece]--;
 		}
 
+		private void SetPlayerEngine(ref IPlayerEngine CurEngine, IPlayerEngine NewEngine)
+		{
+			if (gameState == GameState.Playing)
+			{
+				throw new InvalidOperationException("Can not set player engine while playing");
+			}
+			
+			if (CurEngine != null)
+			{
+				CurEngine.MoveReady -= HandleMoveReady;
+				CurEngine.Resign -= HandleResign;
+			}
+			
+			CurEngine = NewEngine;
+			
+        	CurEngine.MoveReady += HandleMoveReady;
+			CurEngine.Resign += HandleResign;
+			
+			if (CurEngine is LocalPlayer)
+	    	{
+	    		(CurEngine as LocalPlayer).NeedMove += HandleNeedMove;
+	    	}
+		}
+				
 		private void SwitchPlayer()
 		{
 			if (CurPlayer == BlackPlayer)
@@ -572,7 +611,8 @@ namespace Shogiban
 			return false;
 		}
 
-		private static bool PieceCanMoveTo(FieldInfo[,] TmpBoard, BoardField To, PieceDirection Direction, ValidMoves PieceMoves)
+		//TODO remove dir parameter
+		private static bool PieceCanMoveTo(FieldInfo[,] TmpBoard, BoardField To, PieceDirection dir, ValidMoves PieceMoves)
 		{
 			//check board bounds
 			if (To.x < 0 || To.x >= BOARD_SIZE || To.y < 0 || To.y >= BOARD_SIZE)
@@ -876,11 +916,14 @@ namespace Shogiban
 								|| !IsInCheck(TmpBoard, Board[x, y].Direction))
 							{
 								ValidBoardMoves[x, y].Add(AttackedField);
+								
+								/*
 								if (Board[AttackedField.x, AttackedField.y].Piece == PieceType.OUSHOU 
 									&& Board[AttackedField.x, AttackedField.y].Direction == CurPlayerDirection)
 								{
 									//InCheck = true;
 								}
+								*/
 							}
 							
 							//TmpBoard[AttackedField.x, AttackedField.y].Piece = PieceType.NONE;
@@ -949,7 +992,6 @@ namespace Shogiban
 						break;
 					}
 				}
-			
 			}
 			
 			if (!CanMove)
@@ -961,7 +1003,6 @@ namespace Shogiban
 			{
 				Mate = false;
 			}
-			
 		}
 #endregion
 		
@@ -982,6 +1023,8 @@ namespace Shogiban
 
         private void HandleMoveReady(Object sender, MoveReadyEventArgs e)
         {
+			if (gameState != GameState.Playing)
+				return;
         	if (sender != CurPlayerEngine)
         		return;
    
@@ -1020,6 +1063,11 @@ namespace Shogiban
 
 		private void HandleNeedMove(object sender, EventArgs e)
 		{
+			if (gameState != GameState.Playing)
+				return;
+        	if (sender != CurPlayerEngine)
+        		return;
+			
 			localPlayerMoveState = LocalPlayerMoveState.PickSource;
 		}
 
@@ -1073,7 +1121,7 @@ namespace Shogiban
 	[Serializable]
 	public sealed class MoveAddedEventArgs : EventArgs
 	{
-		public Move move;
+		public Move move { get; private set;}
 		public MoveAddedEventArgs(Move move)
 		{
 			this.move = move;
@@ -1192,7 +1240,7 @@ namespace Shogiban
 		public PieceDirection Direction;
 	}
 
-	public struct BoardField
+	public struct BoardField : IEquatable<BoardField>
 	{
 		public int x;
 		public int y;
@@ -1204,14 +1252,30 @@ namespace Shogiban
 		}
 		public override bool Equals(object obj)
 		{
-		      if (obj == null || GetType() != obj.GetType()) return false;
-		      BoardField f = (BoardField)obj;
-		      return (x == f.x) && (y == f.y);
+			if (obj == null || GetType() != obj.GetType())
+				return false;
+			BoardField f = (BoardField)obj;
+			return (x == f.x) && (y == f.y);
+		}
+		
+		public bool Equals(BoardField Field)
+		{
+			return (x == Field.x) && (y == Field.y);
 		}
 		
 		public override int GetHashCode()
 		{
 			return x ^ y;
+		}
+		
+	    public static bool operator ==(BoardField a, BoardField b)
+	    {
+	    	return a.Equals(b);
+	    }
+		
+	    public static bool operator !=(BoardField a, BoardField b)
+	    {
+	    	return !a.Equals(b);
 		}
 	}
 	
@@ -1250,17 +1314,17 @@ namespace Shogiban
 			String s = String.Empty;
 			if (OnHandPiece != PieceType.NONE)
 			{
-				s += Game.PieceNamings[(int)OnHandPiece];
+				s += Game.GetPieceNamings()[(int)OnHandPiece];
 				s += '*';
 			}
 			else
 			{
-				s += Game.HorizontalNamings[From.x];
-				s += Game.VerticalNamings[From.y];
+				s += Game.GetHorizontalNamings()[From.x];
+				s += Game.GetVerticalNamings()[From.y];
 			}
 			
-			s += Game.HorizontalNamings[To.x];
-			s += Game.VerticalNamings[To.y];
+			s += Game.GetHorizontalNamings()[To.x];
+			s += Game.GetVerticalNamings()[To.y];
 			
 			if (promote)
 			{

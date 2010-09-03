@@ -170,10 +170,13 @@ namespace Shogiban
 		#endregion
 
 		#region IDisposable implementation
-		public void Dispose ()
+		public void Dispose()
 		{
 			SendToShogiProc("quit");
-			ShogiProc.Close ();
+			ShogiProc.Close();
+			ShogiProc.Dispose();
+			ReadSem.Close();
+			GC.SuppressFinalize (this);
 		}
 		#endregion
 
@@ -292,7 +295,7 @@ namespace Shogiban
 			
 				if (StartIdx < 0)
 				{
-					throw new Exception("No move found. (" + output + ")");
+					throw new Exception("No move found. (" + output + ")"); //TODO throw specific exception
 				}
 			
 				Move move = MoveFromString(output.Substring(StartIdx + 3));
@@ -338,7 +341,7 @@ namespace Shogiban
 			else
 			{
 				//output = ShogiProc.StandardOutput.ReadLine();
-				output = "";
+				output = String.Empty;
 			}
 			
 #if DEBUG
