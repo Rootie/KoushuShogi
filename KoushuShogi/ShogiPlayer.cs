@@ -31,7 +31,7 @@ namespace Shogiban
 	
 	public interface IPlayerEngine : IDisposable
 	{
-		void StartGame(bool Blackplayer, FieldInfo[,] Board, int[,] OnHandPieces);
+		void StartGame(bool Blackplayer, bool first, FieldInfo[,] Board, int[,] OnHandPieces);
 		void EndGame();
 		void OponentMove(Move move);
 		void Undo();
@@ -65,9 +65,9 @@ namespace Shogiban
 		public event EventHandler<MoveReadyEventArgs> MoveReady;
 		public event EventHandler<ResignEventArgs> Resign;
 
-		public void StartGame (bool Blackplayer, FieldInfo[,] Board, int[,] OnHandPieces)
+		public void StartGame (bool Blackplayer, bool first, FieldInfo[,] Board, int[,] OnHandPieces)
 		{
-			if (Blackplayer)
+			if (first)
 			{
 				OnNeedMove(new EventArgs());
 			}

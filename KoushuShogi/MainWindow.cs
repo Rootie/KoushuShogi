@@ -45,19 +45,9 @@ namespace Shogiban
 			game.MoveRemoved += HandleGameMoveRemoved;
 			game.MovesChanged += HandleGameMovesChanged;
 			
-			game.SetDefaultBoard();
-			
-			game.BlackPlayerEngine = new LocalPlayer();
-			//game.BlackPlayerEngine = new GnuShogiPlayer();
-			game.BlackPlayer.Name = "black";
-			
-			//game.WhitePlayerEngine = new LocalPlayer();
-			game.WhitePlayerEngine = new GnuShogiPlayer();
-			game.WhitePlayer.Name = "white";
+			game.SetDefaultPosition();
 			
 			ShogibanBoardView.game = game;
-			
-			game.StartGame();
 		}
 
 		void HandleGameMovesChanged(object sender, EventArgs e)
@@ -184,8 +174,7 @@ namespace Shogiban
 		
 		protected virtual void OnNewGameActionActivated(object sender, System.EventArgs e)
 		{
-			game.SetDefaultBoard();
-			game.StartGame();
+			new NewGameDialog(game).Run();
 		}
 		
 		protected virtual void OnSaveGameActionActivated(object sender, System.EventArgs e)

@@ -70,6 +70,8 @@
     <Compile Include="ShogiPlayer.cs" />
     <Compile Include="gtk-gui\Shogiban.MainWindow.cs" />
     <Compile Include="PSN.cs" />
+    <Compile Include="NewGameDialog.cs" />
+    <Compile Include="gtk-gui\Shogiban.NewGameDialog.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="app.desktop">

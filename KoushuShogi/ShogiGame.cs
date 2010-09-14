@@ -113,7 +113,7 @@ namespace Shogiban
 		public Player CurPlayer
 		{
 			get { return _CurPlayer; }
-			set
+			private set
 			{
 				_CurPlayer = value;
 				OnCurPlayerChanged();
@@ -141,20 +141,36 @@ namespace Shogiban
 		}
 		
 		//public methods
-        public void StartGame()
+        public void StartGame(Player StartingPlayer)
         {
+        	if (BlackPlayerEngine == null || WhitePlayerEngine == null)
+        	{
+        		throw new ArgumentNullException("PlayerEngine", "BlackPlayerEngine and WhitePlayerEngine must be set when starting a game");
+        	}
+   
         	if (gameState == GameState.Playing)
         		EndGame();
    
         	ClearMoves();
    
-        	//TODO maybe this should be asigned somewhere else
-        	CurPlayerEngine = BlackPlayerEngine;
-        	CurPlayer = BlackPlayer;
+        	if (StartingPlayer == BlackPlayer)
+        	{
+        		CurPlayerEngine = BlackPlayerEngine;
+        		CurPlayer = BlackPlayer;
+        	}
+        	else if (StartingPlayer == WhitePlayer)
+        	{
+        		CurPlayerEngine = WhitePlayerEngine;
+        		CurPlayer = WhitePlayer;
+        	}
+        	else
+        	{
+        		throw new ArgumentException("StartingPlayer must be set to one of BlackPlayer or WhitePlayer", "StartingPlayer");
+			}
    
 			gameState = GameState.Playing;
-        	WhitePlayerEngine.StartGame(false, Board, OnHandPieces);
-        	BlackPlayerEngine.StartGame(true, Board, OnHandPieces);
+        	BlackPlayerEngine.StartGame(true, CurPlayer == BlackPlayer, Board, OnHandPieces);
+        	WhitePlayerEngine.StartGame(false, CurPlayer == WhitePlayer, Board, OnHandPieces);
         }
 		
 		public void EndGame()
@@ -164,6 +180,9 @@ namespace Shogiban
 		
 		public void EndGame(String Reason)
 		{
+			if (gameState != GameState.Playing)
+				return;
+			
 			GameFinishedReason = Reason;
 			gameState = GameState.Review;
 			
@@ -180,6 +199,7 @@ namespace Shogiban
 		{
 			return player == BlackPlayer ? 0 : 1;
 		}
+		
 #region user interaction
 		public void FieldClicked(int x, int y)
 		{
@@ -316,8 +336,12 @@ namespace Shogiban
 			OnPiecesChanged();
 		}
 #endregion
-		public void SetDefaultBoard()
+
+		public void SetDefaultPosition()
 		{
+			if (gameState == GameState.Playing)
+				throw new InvalidOperationException("Can not set position while playing");
+			
 			int x, y;
 			
 			for (x = 0; x < BOARD_SIZE; x++)
@@ -1284,6 +1308,17 @@ namespace Shogiban
 		public FieldInfo[,] Board;
 		public int[,] OnHandPieces;
 		public PieceDirection CurPlayer;
+		
+		public static Position GetEmptyPosition()
+		{
+			Position pos = new Position();
+			
+			pos.Board = new FieldInfo[Game.BOARD_SIZE, Game.BOARD_SIZE];
+			pos.OnHandPieces = new int[Game.PLAYER_COUNT, (int)PieceType.PIECE_TYPES_COUNT];
+			pos.CurPlayer = PieceDirection.UP;
+			
+			return pos;
+		}
 	}
 	
 	public class ValidMoves : System.Collections.Generic.List<BoardField>

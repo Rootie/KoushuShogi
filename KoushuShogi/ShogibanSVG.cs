@@ -31,7 +31,7 @@ namespace Shogiban
 		//layout constants
 		private const double FIELD_SIZE = 100;
 		private const double FIELD_NAMING_SIZE = 40;
-		private const double ON_HAND_AREA_WIDTH = FIELD_SIZE + 50;
+		private const double ON_HAND_AREA_WIDTH = FIELD_SIZE + 80;
 		private const double PADDING = 10;
 		
 		//helper constants
@@ -102,7 +102,7 @@ namespace Shogiban
 			RedrawBoard();
 			
 			//don't accept any inputs when reviewing past positions
-			if (CurMoveNr >= 0)
+			if (CurMoveNr >= 0 || gi == null)
 				return true;
 			
 			if (gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion)
@@ -114,11 +114,11 @@ namespace Shogiban
 				{
 					if (mouse_x >= PromotionChoiceAreaStartX && mouse_x < PromotionChoiceAreaStartX + FIELD_SIZE)
 					{
-						game.PromotionClicked(false);
+						gi.PromotionClicked(false);
 					}
 					else if (mouse_x >= PromotionChoiceAreaStartX + FIELD_SIZE && mouse_x <= PromotionChoiceAreaStartX + 2 * FIELD_SIZE)
 					{
-						game.PromotionClicked(true);
+						gi.PromotionClicked(true);
 					}
 				}
 			}
@@ -128,7 +128,7 @@ namespace Shogiban
 				int x = Game.BOARD_SIZE - 1 - (int)((mouse_x - PLAYFIELD_X_START) / FIELD_SIZE);
 				int y = (int)((mouse_y - PLAYFIELD_Y_START) / FIELD_SIZE);
 				
-				game.FieldClicked(x, y);
+				gi.FieldClicked(x, y);
 			}
 			else if (mouse_x >= BLACK_ON_HAND_AREA_X_START && mouse_x <= BLACK_ON_HAND_AREA_X_END
 				&& mouse_y >= BLACK_ON_HAND_AREA_Y_START && mouse_y <= BLACK_ON_HAND_AREA_Y_END)
@@ -159,15 +159,23 @@ namespace Shogiban
 				cr.Translate(PADDING, PADDING);
 			
 				Position pos;
-				if (CurMoveNr < 0)
+				if (gi != null)
 				{
-					pos = game.GetCurPosition();
+					if (CurMoveNr < 0)
+					{
+						pos = gi.GetCurPosition();
+					}
+
+					else
+					{
+						pos = gi.Moves[CurMoveNr].OriginalPosition;
+					}
 				}
 				else
 				{
-					pos = game.Moves[CurMoveNr].OriginalPosition;
+					pos = Position.GetEmptyPosition();
 				}
-			
+
 				cr.Save();
 				DrawOnHandPieces(cr, pos, false);
 				cr.Translate(ON_HAND_AREA_WIDTH + 9 * FIELD_SIZE + 2 * FIELD_NAMING_SIZE + 2 * PADDING, 0);
@@ -232,7 +240,7 @@ namespace Shogiban
 					if (cur_pos == pos)
 					{
 						//piece type found
-						game.OnHandPieceClicked((PieceType)i);
+						gi.OnHandPieceClicked((PieceType)i);
 						
 						return;
 					}
@@ -356,54 +364,57 @@ namespace Shogiban
 			cr.Color = BoardColor;
 			cr.Fill();
 			
-			//highlight selected piece field
-			if (gi.localPlayerMoveState != LocalPlayerMoveState.Wait
-				&& gi.localPlayerMoveState != LocalPlayerMoveState.PickSource)
+			if (gi != null)
 			{
-				if (gi.GetLocalPlayerMove().OnHandPiece == PieceType.NONE)
+				//highlight selected piece field
+				if (gi.localPlayerMoveState != LocalPlayerMoveState.Wait
+					&& gi.localPlayerMoveState != LocalPlayerMoveState.PickSource)
 				{
-					cr.Rectangle((Game.BOARD_SIZE - gi.GetLocalPlayerMove().From.x - 1) * FIELD_SIZE, gi.GetLocalPlayerMove().From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
-					cr.Color = SelectedFieldColor;
+					if (gi.GetLocalPlayerMove().OnHandPiece == PieceType.NONE)
+					{
+						cr.Rectangle((Game.BOARD_SIZE - gi.GetLocalPlayerMove().From.x - 1) * FIELD_SIZE, gi.GetLocalPlayerMove().From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
+						cr.Color = SelectedFieldColor;
+						cr.Fill();
+					}
+				}
+		
+				//highlight last move
+				if (gi.Moves.Count > 0 && CurMoveNr != 0)
+				{
+					Move move;
+					if (CurMoveNr < 0)
+						move = gi.Moves[gi.Moves.Count-1].move;
+					else
+						move = gi.Moves[CurMoveNr - 1].move;
+					
+					if (move.OnHandPiece == PieceType.NONE)
+					{
+						cr.Rectangle((Game.BOARD_SIZE - move.From.x - 1) * FIELD_SIZE, move.From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
+					}
+					cr.Rectangle((Game.BOARD_SIZE - move.To.x - 1) * FIELD_SIZE, move.To.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
+					cr.Color = LastMoveFieldColor;
 					cr.Fill();
 				}
-			}
-
-			//highlight last move
-			if (gi.Moves.Count > 0 && CurMoveNr != 0)
-			{
-				Move move;
-				if (CurMoveNr < 0)
-					move = gi.Moves[gi.Moves.Count-1].move;
-				else
-					move = gi.Moves[CurMoveNr - 1].move;
 				
-				if (move.OnHandPiece == PieceType.NONE)
+				//highlight possible moves
+				if (gi.localPlayerMoveState == LocalPlayerMoveState.PickDestination)
 				{
-					cr.Rectangle((Game.BOARD_SIZE - move.From.x - 1) * FIELD_SIZE, move.From.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
-				}
-				cr.Rectangle((Game.BOARD_SIZE - move.To.x - 1) * FIELD_SIZE, move.To.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
-				cr.Color = LastMoveFieldColor;
-				cr.Fill();
-			}
-			
-			//highlight possible moves
-			if (gi.localPlayerMoveState == LocalPlayerMoveState.PickDestination)
-			{
-				ValidMoves Moves;
-				if (gi.GetLocalPlayerMove().OnHandPiece == PieceType.NONE)
-				{
-					Moves = gi.GetValidBoardMoves(new BoardField(gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y));
-				}
-				else
-				{
-					Moves = gi.GetValidOnHandMoves(gi.GetLocalPlayerMove().OnHandPiece, gi.CurPlayer == gi.BlackPlayer);
-				}
-				
-				foreach (BoardField Field in Moves)
-				{
-					cr.Rectangle((Game.BOARD_SIZE - Field.x - 1) * FIELD_SIZE, Field.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
-					cr.Color = PossibleMoveColor;
-					cr.Fill();
+					ValidMoves Moves;
+					if (gi.GetLocalPlayerMove().OnHandPiece == PieceType.NONE)
+					{
+						Moves = gi.GetValidBoardMoves(new BoardField(gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y));
+					}
+					else
+					{
+						Moves = gi.GetValidOnHandMoves(gi.GetLocalPlayerMove().OnHandPiece, gi.CurPlayer == gi.BlackPlayer);
+					}
+					
+					foreach (BoardField Field in Moves)
+					{
+						cr.Rectangle((Game.BOARD_SIZE - Field.x - 1) * FIELD_SIZE, Field.y * FIELD_SIZE, FIELD_SIZE, FIELD_SIZE);
+						cr.Color = PossibleMoveColor;
+						cr.Fill();
+					}
 				}
 			}
 			
@@ -427,7 +438,7 @@ namespace Shogiban
 			DrawPieces(cr, pos);
 			
 			//draw promotion choice area
-			if (gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion)
+			if (gi != null && gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion)
 			{
 				double PromotionChoiceAreaStartX = (Game.BOARD_SIZE - gi.GetLocalPlayerMove().To.x - 1) * FIELD_SIZE - FIELD_SIZE / 2;
 				double PromotionChoiceAreaStartY = gi.GetLocalPlayerMove().To.y * FIELD_SIZE;
@@ -454,10 +465,6 @@ namespace Shogiban
 
 		private void DrawPieces(Context cr, Position pos)
 		{
-			if (gi == null)
-				return;
-
-			
 			for (int x = 0; x < Game.BOARD_SIZE; x++)
 				for (int y = 0; y < Game.BOARD_SIZE; y++)
 				{
@@ -486,7 +493,7 @@ namespace Shogiban
 				if (pos.OnHandPieces[player_nr, i] != 0)
 				{
 					//highlight selected piece
-					if (gi.localPlayerMoveState != LocalPlayerMoveState.Wait
+					if (gi != null && gi.localPlayerMoveState != LocalPlayerMoveState.Wait
 						&& gi.localPlayerMoveState != LocalPlayerMoveState.PickSource
 						&& gi.GetLocalPlayerMove().OnHandPiece != PieceType.NONE
 						&& gi.GetLocalPlayerMove().OnHandPiece == (PieceType)i
@@ -513,7 +520,7 @@ namespace Shogiban
 					cr.SetFontSize(FIELD_SIZE / 3 * 0.9);
 					cr.Color = new Color(0, 0, 0);
 	
-					String amount_str = "x " + game.OnHandPieces[player_nr, i].ToString();
+					String amount_str = "x " + pos.OnHandPieces[player_nr, i].ToString();
 					TextExtents extents = cr.TextExtents(amount_str);
 					double x = (FIELD_SIZE);
 					// - (extents.Width/2 + extents.XBearing);

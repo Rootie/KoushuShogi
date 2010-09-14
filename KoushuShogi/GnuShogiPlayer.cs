@@ -49,9 +49,10 @@ namespace Shogiban
 		private bool Playing = false;
 
 		private System.Diagnostics.Process ShogiProc;
+		private Thread ReadNextMoveThread;
+		private AutoResetEvent ReadNextMoveThreadWaitHandle;
 		private Semaphore ReadSem = new Semaphore(0, int.MaxValue);
 
-		#region Player implementation
 		public GnuShogiPlayer()
 		{
 			ShogiProc = new System.Diagnostics.Process();
@@ -61,27 +62,40 @@ namespace Shogiban
 			ShogiProc.StartInfo.RedirectStandardInput = true;
 			ShogiProc.StartInfo.RedirectStandardOutput = true;
 			
+			ShogiProc.EnableRaisingEvents = true;
 			ShogiProc.OutputDataReceived += HandleShogiProcOutputDataReceived;
 			
+			ShogiProc.Exited += HandleShogiProcExited;
 			ShogiProc.Start();
 			ShogiProc.BeginOutputReadLine();
 			
 			//read welcome message
 			ReadFromShogiProc();
+
+			ReadNextMoveThreadWaitHandle = new AutoResetEvent(false);
+			ReadNextMoveThread = new Thread(new ThreadStart(ReadNextMoveThreadFunc));
+			ReadNextMoveThread.IsBackground = true;
+			ReadNextMoveThread.Start();
 		}
-		
+
 		~GnuShogiPlayer()
 		{
 			Dispose();
 		}
 
-		public void StartGame(bool Blackplayer, FieldInfo[,] Board, int[,] OnHandPieces)
+		#region Player implementation
+		public void StartGame(bool Blackplayer, bool first, FieldInfo[,] Board, int[,] OnHandPieces)
 		{
 			SetPosition(Board, OnHandPieces);
 			
 			if (Blackplayer)
 			{
-				SendToShogiProc("switch");
+				//player colors in gnushogi are interchanged
+				SendToShogiProc("white");
+			}
+			if (first)
+			{
+				SendToShogiProc("first");
 				ReadNextMove();
 			}
 			Playing = true;
@@ -145,14 +159,14 @@ namespace Shogiban
 			SendToShogiProc(MoveStr);
 
 			//read output from move back
+			Console.WriteLine(ShogiProc.Id + " = read sent move back");
 			String output = ReadFromShogiProc();
 			//TODO validate output
-			if (output.Contains("Illegal") && Resign != null)
+			if (output.Contains("Illegal"))
 			{
-				Resign(this, new ResignEventArgs(output));
+				OnResign(output);
 				return;
 			}
-			
 			//retrieve next move
 			ReadNextMove();
 		}
@@ -173,10 +187,14 @@ namespace Shogiban
 		public void Dispose()
 		{
 			SendToShogiProc("quit");
-			ShogiProc.Close();
-			ShogiProc.Dispose();
-			ReadSem.Close();
-			GC.SuppressFinalize (this);
+			if (ReadNextMoveThread != null)
+			{
+				ReadNextMoveThread.Abort();
+			}
+			
+			//ShogiProc.Close();
+			//ShogiProc.Dispose();
+			//GC.SuppressFinalize (this);
 		}
 		#endregion
 
@@ -277,46 +295,67 @@ namespace Shogiban
 				}
 			}
 		}
-		Thread ReadNextMoveThread;
+		
 		private void ReadNextMove()
 		{
-			ReadNextMoveThread = new Thread(new ThreadStart(ReadNextMoveThreadFunc));
-			ReadNextMoveThread.IsBackground = true;
-			ReadNextMoveThread.Start();
+			lock (ReadNextMoveThread)
+			{
+				ReadNextMoveThreadWaitHandle.Set();
+			}
 		}
 
 		private void ReadNextMoveThreadFunc()
 		{
-			String output = ReadFromShogiProc();
-			
-			try
+			while (true)
 			{
-				int StartIdx = output.IndexOf(".. ");
-			
-				if (StartIdx < 0)
+				Console.WriteLine(ShogiProc.Id + " = Waiting for next move");
+				ReadNextMoveThreadWaitHandle.WaitOne();
+				lock (ReadNextMoveThread)
 				{
-					throw new Exception("No move found. (" + output + ")"); //TODO throw specific exception
+					
+					Console.WriteLine(ShogiProc.Id + " = Reading move");
+					String output = ReadFromShogiProc();
+					try
+					{
+						int StartIdx = output.IndexOf(".. ");
+					
+						if (StartIdx < 0)
+						{
+							throw new Exception("No move found. (" + output + ")");
+							//TODO throw specific exception
+						}
+					
+						Move move = MoveFromString(output.Substring(StartIdx + 3));
+					
+						if (MoveReady != null)
+						{
+							MoveReady(this, new MoveReadyEventArgs(move));
+						}
+					}
+					catch (Exception ex)
+					{
+						OnResign(ex.Message);
+						continue;
+					}
+					
+					//check if there is a mate message
+					//System.Threading.Thread.Sleep(100);
+					if (StdOutLines.Count > 0)
+					{
+						String MateMsg;
+						lock (ReadSem)
+						{
+							MateMsg = StdOutLines[0];
+						}
+						
+						if (MateMsg.Contains("mate") || MateMsg.Contains("Draw"))
+						{
+							Playing = false;
+							Console.WriteLine (ShogiProc.Id + " = read mate message");
+							ReadFromShogiProc();
+						}
+					}
 				}
-			
-				Move move = MoveFromString(output.Substring(StartIdx + 3));
-			
-				if (MoveReady != null)
-				{
-					MoveReady(this, new MoveReadyEventArgs(move));
-				}
-			}
-			catch (Exception ex)
-			{
-				OnResign(ex.Message);
-				return;
-			}
-			
-			//check if there is a mate message
-			System.Threading.Thread.Sleep(100);
-			if (StdOutLines.Count > 0)
-			{
-				Playing = false;
-				ReadFromShogiProc();
 			}
 		}
 			
@@ -333,33 +372,45 @@ namespace Shogiban
 			String output;
 			
 			ReadSem.WaitOne();
-			if (StdOutLines.Count > 0)
+			lock (ReadSem)
 			{
-				output = StdOutLines[0];
-				StdOutLines.RemoveAt(0);
-			}
-			else
-			{
-				//output = ShogiProc.StandardOutput.ReadLine();
-				output = String.Empty;
-			}
+				if (StdOutLines.Count > 0)
+				{
+					output = StdOutLines[0];
+					StdOutLines.RemoveAt(0);
+				}
+				else
+				{
+					//output = ShogiProc.StandardOutput.ReadLine();
+					output = String.Empty;
+				}
 			
 #if DEBUG
-			System.Console.WriteLine(ShogiProc.Id + " <- " + output);
+				System.Console.WriteLine(ShogiProc.Id + " <- " + output);
 #endif
+			}
+			
 			return output;
 		}
 		
 		private System.Collections.Generic.List<String> StdOutLines = new System.Collections.Generic.List<String>();
+		
+		private void HandleShogiProcExited(object sender, EventArgs e)
+		{
+			Console.WriteLine ("ShogiProc exited");
+			ReadSem.Close();
+		}
 		
 		private void HandleShogiProcOutputDataReceived(object sender, System.Diagnostics.DataReceivedEventArgs e)
 		{
 #if DEBUG
 			System.Console.WriteLine(ShogiProc.Id + " <- " + e.Data + " (Handler)");
 #endif
-			StdOutLines.Add(e.Data);
+			lock (ReadSem)
+			{
+				StdOutLines.Add(e.Data);
+			}
 			ReadSem.Release();
-			//new MessageDialog (this, DialogFlags.DestroyWithParent, MessageType.Info, ButtonsType.Ok, e.Data).Show ();
 		}
 		
 		protected void OnResign(String Message)
