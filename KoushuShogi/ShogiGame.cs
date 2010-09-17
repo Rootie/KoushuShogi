@@ -80,6 +80,47 @@ namespace Shogiban
 
 		public System.Collections.Generic.List<ExtendedMove> Moves = new System.Collections.Generic.List<ExtendedMove>();
 
+		private TimeSpan _GameTime;
+		//negative time means infinite thinking time
+		public TimeSpan GameTime
+		{
+			get
+			{
+				return _GameTime;
+			}
+			set
+			{
+				if (gameState == GameState.Playing)
+					throw new NotSupportedException("Can not set times while playing");
+				
+				_GameTime = value;
+			}
+		}
+		private TimeSpan _ByouYomiTime;
+		public TimeSpan ByouYomiTime
+		{
+			get
+			{
+				return _ByouYomiTime;
+			}
+			set
+			{
+				if (gameState == GameState.Playing)
+					throw new NotSupportedException("Can not set times while playing");
+				
+				if (value.Ticks <= 0)
+					throw new ArgumentException("Value must be positive", "ByouYomiTime");
+				
+				_ByouYomiTime = value;
+			}
+		}
+		private TimeSpan BlackTime;
+		private bool BlackIsInByouYomi;
+		private TimeSpan WhiteTime;
+		private bool WhiteIsInByouYomi;
+		private DateTime TurnStartTime;
+		System.Timers.Timer GameTimeOut = new System.Timers.Timer();
+		
 		private IPlayerEngine _BlackPlayerEngine;
 		public IPlayerEngine BlackPlayerEngine
 		{
@@ -138,8 +179,9 @@ namespace Shogiban
 		{
 			BlackPlayer = new Player();
 			WhitePlayer = new Player();
+			GameTimeOut.Elapsed += HandleGameTimeOutElapsed;
 		}
-		
+
 		//public methods
         public void StartGame(Player StartingPlayer)
         {
@@ -166,9 +208,20 @@ namespace Shogiban
         	else
         	{
         		throw new ArgumentException("StartingPlayer must be set to one of BlackPlayer or WhitePlayer", "StartingPlayer");
-			}
+        	}
+   
+			BlackTime = GameTime;
+        	WhiteTime = GameTime;
+        	BlackIsInByouYomi = false;
+        	WhiteIsInByouYomi = false;
    
 			gameState = GameState.Playing;
+        	TurnStartTime = DateTime.Now;
+        	if (GameTime.Ticks > 0)
+        	{
+    	    	GameTimeOut.Interval = GameTime.TotalMilliseconds;
+	        	GameTimeOut.Enabled = true;
+			}
         	BlackPlayerEngine.StartGame(true, CurPlayer == BlackPlayer, Board, OnHandPieces);
         	WhitePlayerEngine.StartGame(false, CurPlayer == WhitePlayer, Board, OnHandPieces);
         }
@@ -186,8 +239,25 @@ namespace Shogiban
 			GameFinishedReason = Reason;
 			gameState = GameState.Review;
 			
+			UpdateGameTimes();
+			
 			BlackPlayerEngine.EndGame();
 			WhitePlayerEngine.EndGame();
+		}
+		
+		public void GetRemainingTimes(out TimeSpan Black, out TimeSpan White)
+		{
+			Black = BlackTime;
+			if (gameState == GameState.Playing && CurPlayer == BlackPlayer && GameTime.Ticks > 0)
+			{
+				Black -= DateTime.Now.Subtract(TurnStartTime);
+			}
+			
+			White = WhiteTime;
+			if (gameState == GameState.Playing && CurPlayer == WhitePlayer && GameTime.Ticks > 0)
+			{
+				White -= DateTime.Now.Subtract(TurnStartTime);
+			}
 		}
 		
         public int CurrentPlayerNumber
@@ -314,6 +384,7 @@ namespace Shogiban
 				return;
 			
 			//restore last move
+			UpdateGameTimes();
 			RestorePosition(Moves[Moves.Count - 1]);
 			RemoveLastMove();
 			
@@ -518,6 +589,37 @@ namespace Shogiban
 			}
 		}
 
+		private void UpdateGameTimes()
+		{
+			if (GameTime.Ticks <= 0)
+				return;
+			
+			if (CurPlayer == BlackPlayer)
+			{
+				if (BlackIsInByouYomi)
+				{
+					BlackTime = ByouYomiTime;
+				}
+				else
+				{
+					BlackTime -= DateTime.Now.Subtract(TurnStartTime);
+				}
+			}
+			else
+			{
+				if (WhiteIsInByouYomi)
+				{
+					WhiteTime = ByouYomiTime;
+				}
+				else
+				{
+					WhiteTime -= DateTime.Now.Subtract(TurnStartTime);
+				}
+			}
+			
+        	TurnStartTime = DateTime.Now;
+		}
+		
 #region move validation
 		private ValidMoves[,] ValidBoardMoves = new ValidMoves[BOARD_SIZE ,BOARD_SIZE];
 		private ValidMoves[,] ValidOnHandMoves = new ValidMoves[PLAYER_COUNT, (int)PieceType.PIECE_TYPES_COUNT];
@@ -1047,27 +1149,30 @@ namespace Shogiban
 
         private void HandleMoveReady(Object sender, MoveReadyEventArgs e)
         {
-			if (gameState != GameState.Playing)
-				return;
+        	if (gameState != GameState.Playing)
+        		return;
         	if (sender != CurPlayerEngine)
         		return;
+      
+			GameTimeOut.Enabled = false;
+        	UpdateGameTimes();
    
-        	if (IsMoveValid(e.move))
+	       	if (IsMoveValid(e.move))
         	{
         		AddMove(e.move);
     
 				System.Console.WriteLine("cheking for mate");
         		if (Mate)
         		{
-					//send last move to opponent
+        			//send last move to opponent
         			if (CurPlayer == BlackPlayer)
         			{
         				WhitePlayerEngine.OponentMove(e.move);
         			}
-					else
+        			else
         			{
         				BlackPlayerEngine.OponentMove(e.move);
-					}
+        			}
         			System.Console.WriteLine("mate");
         			EndGame("Mate");
         			return;
@@ -1076,6 +1181,11 @@ namespace Shogiban
 
 				System.Console.WriteLine("no mate");
         		SwitchPlayer();
+        		if (GameTime.Ticks > 0)
+        		{
+        			GameTimeOut.Interval = CurPlayer == BlackPlayer ? BlackTime.TotalMilliseconds : WhiteTime.TotalMilliseconds;
+        			GameTimeOut.Enabled = true;
+				}
         		CurPlayerEngine.OponentMove(e.move);
         	}
         	else
@@ -1095,6 +1205,42 @@ namespace Shogiban
 			localPlayerMoveState = LocalPlayerMoveState.PickSource;
 		}
 
+		void HandleGameTimeOutElapsed(object sender, System.Timers.ElapsedEventArgs e)
+		{
+			Console.WriteLine("Timout");
+			GameTimeOut.Enabled = false;
+			if (CurPlayer == BlackPlayer)
+			{
+				if (BlackIsInByouYomi)
+				{
+					EndGame("Timeout");
+				}
+				else
+				{
+					BlackIsInByouYomi = true;
+					BlackTime = ByouYomiTime;
+					TurnStartTime = DateTime.Now;
+					GameTimeOut.Interval = BlackTime.TotalMilliseconds;
+					GameTimeOut.Enabled = true;
+				}
+			}
+			else
+			{
+				if (WhiteIsInByouYomi)
+				{
+					EndGame("Timeout");
+				}
+				else
+				{
+					WhiteIsInByouYomi = true;
+					WhiteTime = ByouYomiTime;
+					TurnStartTime = DateTime.Now;
+					GameTimeOut.Interval = WhiteTime.TotalMilliseconds;
+					GameTimeOut.Enabled = true;
+				}
+			}
+		}
+		
 		//events
 		protected void OnPiecesChanged()
 		{

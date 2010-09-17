@@ -22,6 +22,7 @@
 using System;
 using Gtk;
 using System.Reflection;
+using System.Text;
 
 namespace Shogiban
 {
@@ -35,6 +36,11 @@ namespace Shogiban
 		public MainWindow() : base(Gtk.WindowType.Toplevel)
 		{
 			this.Build();
+			
+			BlackTimeLblBox.ModifyBg(StateType.Normal, new Gdk.Color(0, 0, 0));
+			BlackTimeLbl.ModifyFg(StateType.Normal, new Gdk.Color(255, 255, 255));
+			WhiteTimeLblBox.ModifyBg(StateType.Normal, new Gdk.Color(255, 255, 255));
+			WhiteTimeLbl.ModifyFg(StateType.Normal, new Gdk.Color(0, 0, 0));
 			
 			game = new Game();
 			UpdateMoveNavigationControls();
@@ -111,6 +117,51 @@ namespace Shogiban
 			statusbar.Push(0, Text);
 		}
 
+		private String FormatTime(TimeSpan Time)
+		{
+			if (Time.Ticks <= 0)
+			{
+				return "∞";
+			}
+			
+			StringBuilder s = new StringBuilder();
+			
+			if (Math.Abs(Time.Hours) > 0)
+			{
+				s.Append(Math.Abs(Time.Hours).ToString("D2"));
+				
+				s.Append(':');
+			}
+			
+			s.Append(Math.Abs(Time.Minutes).ToString("D2"));
+			
+			s.Append(':');
+			
+			s.Append(Math.Abs(Time.Seconds).ToString("D2"));
+			
+			return s.ToString();
+		}
+
+		private bool Update_Times()
+		{
+			TimeSpan BlackTime, WhiteTime;
+			
+			game.GetRemainingTimes(out BlackTime, out WhiteTime);
+			
+			BlackTimeLbl.Text = FormatTime(BlackTime);
+			WhiteTimeLbl.Text = FormatTime(WhiteTime);
+			
+			if (game.gameState == GameState.Playing)
+			{
+				return true;
+			}
+
+			else
+			{
+				return false;
+			}
+		}
+
 		private void Quit()
 		{
 			game.BlackPlayerEngine.Dispose();
@@ -133,9 +184,14 @@ namespace Shogiban
 			else if (game.gameState == GameState.Playing)
 			{
 				SetStatusBarText("Game started. " + GetTurningPlayerString());
+				Update_Times();
+				if (game.GameTime.Ticks > 0)
+				{
+					GLib.Timeout.Add(100, Update_Times);
+				}
 			}
 		}
-
+		
 		protected virtual void OnDeleteEvent(object o, Gtk.DeleteEventArgs args)
 		{
 			Quit();

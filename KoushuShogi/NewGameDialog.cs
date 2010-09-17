@@ -62,7 +62,7 @@ namespace Shogiban
 			
 				game.BlackPlayer.Name = BlackPlayerNameEntry.Text;
 				game.WhitePlayer.Name = WhitePlayerNameEntry.Text;
-								
+				
 				switch (BlackPlayerEngineCB.Active)
 				{
 				case 0:
@@ -103,6 +103,16 @@ namespace Shogiban
 					}
 					Type[] ArgTypes = new Type[] {  };
 					game.WhitePlayerEngine = (IPlayerEngine)WhitePlayerEngineType.GetConstructor(ArgTypes).Invoke(null);
+				}
+				
+				if (UnlimitedTimeRB.Active)
+				{
+					game.GameTime = TimeSpan.MinValue;
+				}
+				else
+				{
+					game.GameTime = new TimeSpan(0, GameTimeEdit.ValueAsInt, 0);
+					game.ByouYomiTime = new TimeSpan(0, 0, ByouYomiTimeEdit.ValueAsInt);
 				}
 				
 				game.SetDefaultPosition();
