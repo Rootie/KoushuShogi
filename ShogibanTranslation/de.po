@@ -1,12 +1,131 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
-"POT-Creation-Date: 2010-05-31 18:51:23+0200\n"
-"PO-Revision-Date: 2010-05-31 18:51:23+0200\n"
+"POT-Creation-Date: 2010-09-17 23:15:20+0200\n"
+"PO-Revision-Date: 2010-09-17 23:11:27+0200\n"
 "Last-Translator: rootie\n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=utf-8\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: MonoDevelop Gettext addin\n"
 
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:58
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:59
+msgid "Game"
+msgstr "Spiel"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:61
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:62
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:89
+msgid "New Game"
+msgstr "Neues Spiel"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:64
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:65
+msgid "Quit"
+msgstr "Beenden"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:67
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:68
+msgid "Help"
+msgstr "Hilfe"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:70
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:71
+msgid "About"
+msgstr "Über"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:73
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:74
+msgid "Save"
+msgstr "Speichern"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:76
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:77
+msgid "Undo"
+msgstr "Rückgängig"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:82
+msgid "Koushu Shogi"
+msgstr "Koushu Shogi"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.MainWindow.cs:222
+msgid "Game Start"
+msgstr "Spielbeginn"
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:114
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:201
+msgid "Local Human Player"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:115
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:202
+msgid "Gnu Shogi"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:140
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:194
+msgid "Name:"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:149
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:183
+msgid "Profile:"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:160
+msgid "<b>Black player</b>"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:228
+msgid "<b>White player</b>"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:267
+msgid "Minutes"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:301
+msgid "Seconds"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:319
+msgid "Game time:"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:330
+msgid "Starting player:"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:339
+msgid "Main time:"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:350
+msgid "Byoyomi time:"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:362
+msgid "Unlimited thinking time"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:374
+msgid "Use custom times below"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:398
+msgid "Black"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:410
+msgid "White"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:431
+msgid "<b>Game Settings</b>"
+msgstr ""
+
+#: ../KoushuShogi/gtk-gui/Shogiban.NewGameDialog.cs:466
+msgid "_Start Game"
+msgstr ""

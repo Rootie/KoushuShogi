@@ -8,19 +8,16 @@
     <Packages>
       <Packages>
         <Package name="Linux Binaries">
-          <Builder targetFile="Shogiban-linux.tar.gz" platform="Linux" configuration="Debug|x86" ctype="BinariesZipPackageBuilder">
+          <Builder targetFile="Koushu Shogi.tar.gz" platform="Linux" configuration="Release|x86" ctype="BinariesZipPackageBuilder">
             <ChildEntries>
-              <SolutionItemReference path="Shogiban\Shogiban.csproj" />
+              <SolutionItemReference path="KoushuShogi\Koushu Shogi.csproj" />
             </ChildEntries>
-            <RootEntry path="Shogiban.sln" id=":root:" />
+            <RootEntry path="Koushu Shogi.sln" id=":root:" />
           </Builder>
         </Package>
         <Package name="Microsoft Windows Binaries">
-          <Builder targetFile="Shogiban-windows.tar.gz" platform="Windows" configuration="Debug|x86" ctype="BinariesZipPackageBuilder">
-            <ChildEntries>
-              <SolutionItemReference path="Shogiban\Shogiban.csproj" />
-            </ChildEntries>
-            <RootEntry path="Shogiban.sln" id=":root:" />
+          <Builder targetFile="KoushuShogi\Koushu Shogi.tar.gz" platform="Windows" configuration="Release|x86" ctype="BinariesZipPackageBuilder">
+            <RootEntry path="KoushuShogi\Koushu Shogi.csproj" />
           </Builder>
         </Package>
       </Packages>

@@ -210,7 +210,7 @@
                 <child>
                   <widget class="Gtk.Label" id="BlackTimeLbl">
                     <property name="MemberName" />
-                    <property name="LabelProp" translatable="yes">-</property>
+                    <property name="LabelProp">-</property>
                     <property name="WidthChars">8</property>
                   </widget>
                 </child>
@@ -228,7 +228,7 @@
                 <child>
                   <widget class="Gtk.Label" id="WhiteTimeLbl">
                     <property name="MemberName" />
-                    <property name="LabelProp" translatable="yes">-</property>
+                    <property name="LabelProp">-</property>
                     <property name="WidthChars">8</property>
                   </widget>
                 </child>
@@ -334,6 +334,7 @@ Gnu Shogi</property>
                             <property name="MemberName" />
                             <property name="CanFocus">True</property>
                             <property name="IsEditable">True</property>
+                            <property name="ActivatesDefault">True</property>
                             <property name="InvisibleChar">●</property>
                           </widget>
                           <packing>
@@ -497,6 +498,7 @@ Gnu Shogi</property>
                             <property name="MemberName" />
                             <property name="CanFocus">True</property>
                             <property name="IsEditable">True</property>
+                            <property name="ActivatesDefault">True</property>
                             <property name="InvisibleChar">●</property>
                           </widget>
                           <packing>
@@ -557,7 +559,7 @@ Gnu Shogi</property>
                               <widget class="Gtk.SpinButton" id="GameTimeEdit">
                                 <property name="MemberName" />
                                 <property name="CanFocus">True</property>
-                                <property name="Upper">100</property>
+                                <property name="Upper">9999</property>
                                 <property name="PageIncrement">10</property>
                                 <property name="StepIncrement">1</property>
                                 <property name="ClimbRate">1</property>
@@ -608,7 +610,7 @@ Gnu Shogi</property>
                               <widget class="Gtk.SpinButton" id="ByouYomiTimeEdit">
                                 <property name="MemberName" />
                                 <property name="CanFocus">True</property>
-                                <property name="Upper">100</property>
+                                <property name="Upper">9999</property>
                                 <property name="PageIncrement">10</property>
                                 <property name="StepIncrement">1</property>
                                 <property name="ClimbRate">1</property>

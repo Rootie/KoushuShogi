@@ -35,6 +35,8 @@ namespace Shogiban
 			
 			this.Build();
 		
+			GameTimeEdit.ActivatesDefault = true;
+			ByouYomiTimeEdit.ActivatesDefault = true;
 		}
 		
 		protected override void OnRealized()
