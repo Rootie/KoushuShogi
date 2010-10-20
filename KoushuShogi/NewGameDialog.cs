@@ -117,7 +117,9 @@ namespace Shogiban
 					game.ByouYomiTime = new TimeSpan(0, 0, ByouYomiTimeEdit.ValueAsInt);
 				}
 				
-				game.SetDefaultPosition();
+				Position Pos = new Position();
+				Pos.SetDefaultPosition();
+				game.Position = Pos;
 				Player StartingPlayer = BlackRB.Active ? game.BlackPlayer : game.WhitePlayer;
 				Console.WriteLine("OnResponse: starting game");
 				game.StartGame(StartingPlayer);

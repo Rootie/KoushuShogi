@@ -84,16 +84,16 @@ namespace Shogiban
 		}
 
 		#region Player implementation
-		public void StartGame(bool Blackplayer, bool first, FieldInfo[,] Board, int[,] OnHandPieces)
+		public void StartGame(bool Blackplayer, Position Pos)
 		{
-			SetPosition(Board, OnHandPieces);
+			SetPosition(Pos);
 			
 			if (Blackplayer)
 			{
 				//player colors in gnushogi are interchanged
 				SendToShogiProc("white");
 			}
-			if (first)
+			if (Blackplayer == (Pos.CurPlayer == PieceDirection.UP))
 			{
 				SendToShogiProc("first");
 				ReadNextMove();
@@ -108,7 +108,7 @@ namespace Shogiban
 			SendToShogiProc("new");
 		}
 
-		private void SetPosition(FieldInfo[,] Board, int[,] OnHandPieces)
+		private void SetPosition(Position Pos)
 		{
 			SendToShogiProc("edit");
 			ReadFromShogiProc();
@@ -119,11 +119,11 @@ namespace Shogiban
 			SendToShogiProc("#");
 
 			//black pieces
-			SetPositionForPlayer(Board, OnHandPieces, true);
+			SetPositionForPlayer(Pos, true);
 			
 			//white pieces
 			SendToShogiProc("c");
-			SetPositionForPlayer(Board, OnHandPieces, false);
+			SetPositionForPlayer(Pos, false);
 
 			//end editing
 			SendToShogiProc(".");
@@ -259,7 +259,7 @@ namespace Shogiban
 			return move;
 		}
 
-		private void SetPositionForPlayer(FieldInfo[,] Board, int[,] OnHandPieces, bool BlackPlayer)
+		private void SetPositionForPlayer(Position Pos, bool BlackPlayer)
 		{
 			PieceDirection Direction = BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN;
 			int PlayerNr = BlackPlayer ? 0 : 1;
@@ -269,13 +269,13 @@ namespace Shogiban
 			{
 				for (int y = 0; y < Game.BOARD_SIZE; y++)
 				{
-					if (!(Board[x, y].Piece != PieceType.NONE && Board[x, y].Direction == Direction))
+					if (!(Pos.Board[x, y].Piece != PieceType.NONE && Pos.Board[x, y].Direction == Direction))
 						continue;
 					String FieldStr = String.Empty;
-					FieldStr += PieceNamings[(int)Board[x, y].Piece.GetUnpromotedPiece()];
+					FieldStr += PieceNamings[(int)Pos.Board[x, y].Piece.GetUnpromotedPiece()];
 					FieldStr += HorizontalNamings[x];
 					FieldStr += VerticalNamings[y];
-					if (Board[x, y].Piece.IsPromoted())
+					if (Pos.Board[x, y].Piece.IsPromoted())
 						FieldStr += "+";
 					
 					SendToShogiProc(FieldStr);
@@ -285,7 +285,7 @@ namespace Shogiban
 			//on hand pieces
 			for (int Piece = 0; Piece < (int)PieceType.PIECE_TYPES_COUNT; Piece++)
 			{
-				for (int i = 0; i < OnHandPieces[PlayerNr, Piece]; i++)
+				for (int i = 0; i < Pos.OnHandPieces[PlayerNr, Piece]; i++)
 				{
 					String PieceStr = String.Empty;
 					PieceStr += PieceNamings[i];

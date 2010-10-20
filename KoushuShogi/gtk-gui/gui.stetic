@@ -55,6 +55,13 @@
         <property name="StockId">gtk-undo</property>
         <signal name="Activated" handler="OnUndoActionActivated" />
       </action>
+      <action id="openAction">
+        <property name="Type">Action</property>
+        <property name="Label" translatable="yes">Open</property>
+        <property name="ShortLabel" translatable="yes">Open</property>
+        <property name="StockId">gtk-open</property>
+        <signal name="Activated" handler="OnOpenActionActivated" />
+      </action>
     </action-group>
     <property name="MemberName" />
     <property name="Title" translatable="yes">Koushu Shogi</property>
@@ -69,6 +76,7 @@
             <node name="menubar2" type="Menubar">
               <node type="Menu" action="GameAction">
                 <node type="Menuitem" action="NewGameAction" />
+                <node type="Menuitem" action="openAction" />
                 <node type="Menuitem" action="saveAction" />
                 <node type="Menuitem" action="quitAction" />
               </node>
@@ -91,6 +99,7 @@
             <node name="toolbar1" type="Toolbar">
               <node type="Toolitem" action="quitAction" />
               <node type="Toolitem" action="NewGameAction" />
+              <node type="Toolitem" action="openAction" />
               <node type="Toolitem" action="saveAction" />
               <node type="Toolitem" action="undoAction" />
             </node>
@@ -195,8 +204,7 @@
               <widget class="Gtk.ComboBox" id="MovesCB">
                 <property name="MemberName" />
                 <property name="IsTextCombo">True</property>
-                <property name="Items" translatable="yes">Game Start</property>
-                <property name="Active">0</property>
+                <property name="Items" translatable="yes" />
                 <signal name="Changed" handler="OnMovesCBChanged" />
               </widget>
               <packing>
@@ -740,7 +748,6 @@ Gnu Shogi</property>
                                 <property name="MemberName" />
                                 <property name="CanFocus">True</property>
                                 <property name="Label" translatable="yes">Unlimited thinking time</property>
-                                <property name="Active">True</property>
                                 <property name="DrawIndicator">True</property>
                                 <property name="HasLabel">True</property>
                                 <property name="UseUnderline">True</property>
@@ -796,7 +803,6 @@ Gnu Shogi</property>
                                 <property name="MemberName" />
                                 <property name="CanFocus">True</property>
                                 <property name="Label" translatable="yes">Black</property>
-                                <property name="Active">True</property>
                                 <property name="DrawIndicator">True</property>
                                 <property name="HasLabel">True</property>
                                 <property name="UseUnderline">True</property>

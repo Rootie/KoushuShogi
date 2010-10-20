@@ -65,13 +65,14 @@ namespace Shogiban
 		private int CurMoveNr = -1;
 		private double ScaleFactor = 1;
 		
+		public Position pos;
 		public Game game
 		{
 			get { return gi; }
 			set
 			{
 				gi = value;
-				gi.PiecesChanged += HandleGiPiecesChanged;
+				gi.PositionChanged += HandleGiPositionChanged;
 				
 				RedrawBoard();
 			}
@@ -88,6 +89,25 @@ namespace Shogiban
 		public void ShowMoveNr(int MoveNr)
 		{
 			CurMoveNr = MoveNr;
+			
+			if (gi != null)
+			{
+				if (CurMoveNr < 0)
+				{
+					Console.WriteLine("ShogibanSVG.ShowMoveNr: -1");
+					pos = gi.Position;
+				}
+				else
+				{
+					Console.WriteLine("ShogibanSVG.ShowMoveNr: " + CurMoveNr);
+					pos = gi.Moves[CurMoveNr].OriginalPosition;
+				}
+			}
+			else
+			{
+				pos = null;
+			}
+			
 			RedrawBoard();
 		}
 		
@@ -158,22 +178,9 @@ namespace Shogiban
 				cr.Save();
 				cr.Translate(PADDING, PADDING);
 			
-				Position pos;
-				if (gi != null)
+				if (pos == null)
 				{
-					if (CurMoveNr < 0)
-					{
-						pos = gi.GetCurPosition();
-					}
-
-					else
-					{
-						pos = gi.Moves[CurMoveNr].OriginalPosition;
-					}
-				}
-				else
-				{
-					pos = Position.GetEmptyPosition();
+					pos = new Position();
 				}
 
 				cr.Save();
@@ -223,9 +230,9 @@ namespace Shogiban
 			requisition.Width = 100;
 		}
 				
-		private void OnHandPieceClicked(int pos, bool BlackPlayer)
+		private void OnHandPieceClicked(int idx, bool BlackPlayer)
 		{
-			System.Console.WriteLine(String.Format("Clicked on hand {0}", pos));
+			System.Console.WriteLine(String.Format("ShogibanSVG.Clicked on hand {0}", idx));
 			
 			if (((gi.CurPlayer == gi.BlackPlayer) ^ BlackPlayer))
 			{
@@ -235,9 +242,9 @@ namespace Shogiban
 			int cur_pos = 0;
 			for (int i = 0; i < (int)PieceType.PIECE_TYPES_COUNT; i++)
 			{
-				if (gi.OnHandPieces[gi.CurrentPlayerNumber, i] > 0)
+				if (pos.OnHandPieces[pos.CurrentPlayerNumber, i] > 0)
 				{
-					if (cur_pos == pos)
+					if (cur_pos == idx)
 					{
 						//piece type found
 						gi.OnHandPieceClicked((PieceType)i);
@@ -312,6 +319,7 @@ namespace Shogiban
 		
 		private void DrawBoard(Context cr, Position pos)
 		{
+			Console.WriteLine("ShogibanSVG.DrawBoard");
 			#region board border
 			//Top
 			cr.Rectangle(0, 0, Game.BOARD_SIZE * FIELD_SIZE + 2*FIELD_NAMING_SIZE, FIELD_NAMING_SIZE);
@@ -368,7 +376,8 @@ namespace Shogiban
 			{
 				//highlight selected piece field
 				if (gi.localPlayerMoveState != LocalPlayerMoveState.Wait
-					&& gi.localPlayerMoveState != LocalPlayerMoveState.PickSource)
+					&& gi.localPlayerMoveState != LocalPlayerMoveState.PickSource
+					&& CurMoveNr < 0)
 				{
 					if (gi.GetLocalPlayerMove().OnHandPiece == PieceType.NONE)
 					{
@@ -397,16 +406,17 @@ namespace Shogiban
 				}
 				
 				//highlight possible moves
-				if (gi.localPlayerMoveState == LocalPlayerMoveState.PickDestination)
+				if (gi.localPlayerMoveState == LocalPlayerMoveState.PickDestination && CurMoveNr < 0)
 				{
 					ValidMoves Moves;
-					if (gi.GetLocalPlayerMove().OnHandPiece == PieceType.NONE)
+					Move LocalPlayerMove = gi.GetLocalPlayerMove();
+					if (LocalPlayerMove.OnHandPiece == PieceType.NONE)
 					{
-						Moves = gi.GetValidBoardMoves(new BoardField(gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y));
+						Moves = pos.GetValidBoardMoves(LocalPlayerMove.From);
 					}
 					else
 					{
-						Moves = gi.GetValidOnHandMoves(gi.GetLocalPlayerMove().OnHandPiece, gi.CurPlayer == gi.BlackPlayer);
+						Moves = pos.GetValidOnHandMoves(LocalPlayerMove.OnHandPiece, gi.CurPlayer == gi.BlackPlayer);
 					}
 					
 					foreach (BoardField Field in Moves)
@@ -438,7 +448,7 @@ namespace Shogiban
 			DrawPieces(cr, pos);
 			
 			//draw promotion choice area
-			if (gi != null && gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion)
+			if (gi != null && gi.localPlayerMoveState == LocalPlayerMoveState.PickPromotion && CurMoveNr < 0)
 			{
 				double PromotionChoiceAreaStartX = (Game.BOARD_SIZE - gi.GetLocalPlayerMove().To.x - 1) * FIELD_SIZE - FIELD_SIZE / 2;
 				double PromotionChoiceAreaStartY = gi.GetLocalPlayerMove().To.y * FIELD_SIZE;
@@ -456,8 +466,10 @@ namespace Shogiban
 				cr.Color = BoardColor;
 				cr.Fill();
 				
-				DrawPiece(cr, gi.Board[gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y].Piece, gi.Board[gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y].Direction, 0, 0);
-				DrawPiece(cr, gi.Board[gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y].Piece.GetPromotedPiece(), gi.Board[gi.GetLocalPlayerMove().From.x, gi.GetLocalPlayerMove().From.y].Direction, FIELD_SIZE, 0);
+				Move LocalPlayerMove = gi.GetLocalPlayerMove();
+				FieldInfo From = pos.Board[LocalPlayerMove.From.x, LocalPlayerMove.From.y];
+				DrawPiece(cr, From.Piece, From.Direction, 0, 0);
+				DrawPiece(cr, From.Piece.GetPromotedPiece(), From.Direction, FIELD_SIZE, 0);
 				
 				cr.Restore();	
 			}
@@ -562,9 +574,21 @@ namespace Shogiban
 			cr.Restore();
 		}
 
-		private void HandleGiPiecesChanged(object sender, EventArgs e)
+		private void HandleGiPositionChanged(object sender, EventArgs e)
 		{
-			Gtk.Application.Invoke(delegate { RedrawBoard(); });
+			//Gtk.Application.Invoke(delegate
+			//{
+			if (CurMoveNr < 0)
+			{
+				Console.WriteLine("ShogibanSVG.HandleGiPositionChanged: ThreadID: " + System.Threading.Thread.CurrentThread.ManagedThreadId);
+				pos = gi.Position;
+				pos.DebugPrint();
+
+				}
+				
+				RedrawBoard();
+				Console.WriteLine("ShogibanSVG.HandleGiPositionChanged: leave");
+			//});
 		}
 	}
 }

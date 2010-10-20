@@ -73,11 +73,36 @@ namespace Shogiban
 			}
 		}
 
-		public String GameFinishedReason = String.Empty;
+		private String _GameFinishedReason = String.Empty;
+		public String GameFinishedReason
+		{
+			get
+			{
+				return _GameFinishedReason;
+			}
+			private set
+			{
+				_GameFinishedReason = value;
+			}
+		}
 
-		public FieldInfo[,] Board = new FieldInfo[BOARD_SIZE, BOARD_SIZE];
-		public int[,] OnHandPieces = new int[PLAYER_COUNT, (int)PieceType.PIECE_TYPES_COUNT];
+		private Position _Position = new Position();
+		public Position Position
+		{
+			get
+			{
+				return _Position.Clone();
+			}
+			set
+			{
+				if (gameState == GameState.Playing)
+					throw new NotSupportedException("Can not set position while playing");
+				
+				_Position = value.Clone();
+			}
+		}
 
+		//TODO restrict access
 		public System.Collections.Generic.List<ExtendedMove> Moves = new System.Collections.Generic.List<ExtendedMove>();
 
 		private TimeSpan _GameTime;
@@ -139,7 +164,10 @@ namespace Shogiban
 				SetPlayerEngine(ref _WhitePlayerEngine, value);
 			}
 		}
-		private IPlayerEngine CurPlayerEngine;
+		private IPlayerEngine CurPlayerEngine
+		{
+			get { return _Position.CurPlayer == PieceDirection.UP ? BlackPlayerEngine : WhitePlayerEngine; }
+		}
 		public Player BlackPlayer
 		{
 			get;
@@ -150,15 +178,9 @@ namespace Shogiban
 			get;
 			private set;
 		}
-		private Player _CurPlayer;
 		public Player CurPlayer
 		{
-			get { return _CurPlayer; }
-			private set
-			{
-				_CurPlayer = value;
-				OnCurPlayerChanged();
-			}
+			get { return _Position.CurPlayer == PieceDirection.UP ? BlackPlayer : WhitePlayer; }
 		}
 
 		public bool Mate
@@ -197,13 +219,11 @@ namespace Shogiban
    
         	if (StartingPlayer == BlackPlayer)
         	{
-        		CurPlayerEngine = BlackPlayerEngine;
-        		CurPlayer = BlackPlayer;
+        		_Position.CurPlayer = PieceDirection.UP;
         	}
         	else if (StartingPlayer == WhitePlayer)
         	{
-        		CurPlayerEngine = WhitePlayerEngine;
-        		CurPlayer = WhitePlayer;
+        		_Position.CurPlayer = PieceDirection.DOWN;
         	}
         	else
         	{
@@ -219,11 +239,13 @@ namespace Shogiban
         	TurnStartTime = DateTime.Now;
         	if (GameTime.Ticks > 0)
         	{
-    	    	GameTimeOut.Interval = GameTime.TotalMilliseconds;
-	        	GameTimeOut.Enabled = true;
-			}
-        	BlackPlayerEngine.StartGame(true, CurPlayer == BlackPlayer, Board, OnHandPieces);
-        	WhitePlayerEngine.StartGame(false, CurPlayer == WhitePlayer, Board, OnHandPieces);
+        		GameTimeOut.Interval = GameTime.TotalMilliseconds;
+        		GameTimeOut.Enabled = true;
+        	}
+        	BlackPlayerEngine.StartGame(true, this.Position);
+        	WhitePlayerEngine.StartGame(false, this.Position);
+			
+			Console.WriteLine("Game Position Hash: " + _Position.GetHashCode().ToString());
         }
 		
 		public void EndGame()
@@ -259,28 +281,22 @@ namespace Shogiban
 				White -= DateTime.Now.Subtract(TurnStartTime);
 			}
 		}
-		
-        public int CurrentPlayerNumber
-		{
-			get { return CurPlayer == BlackPlayer ? 0 : 1; }
-		}
 
-		public int GetPlayerNumber(Player player)
-		{
-			return player == BlackPlayer ? 0 : 1;
-		}
-		
 #region user interaction
 		public void FieldClicked(int x, int y)
 		{
 			System.Console.WriteLine(String.Format("Clicked on Field {0} {1}", x, y));
+			
+			if (!(CurPlayerEngine is LocalPlayer))
+				return;
 			
 			switch (localPlayerMoveState)
 			{
 			case LocalPlayerMoveState.Wait:
 				return;
 			case LocalPlayerMoveState.PickSource:
-				if (Board[x, y].Piece != PieceType.NONE && Board[x, y].Direction == (CurPlayer == BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN))
+				if (_Position.Board[x, y].Piece != PieceType.NONE 
+					&& _Position.Board[x, y].Direction == _Position.CurPlayer)
 				{
 					_LocalPlayerMove.OnHandPiece = PieceType.NONE;
 					_LocalPlayerMove.From.x = x;
@@ -290,8 +306,8 @@ namespace Shogiban
 				}
 				break;
 			case LocalPlayerMoveState.PickDestination:
-				if (Board[x, y].Direction == ((CurPlayer == BlackPlayer) ? PieceDirection.UP : PieceDirection.DOWN)
-				    && Board[x, y].Piece != PieceType.NONE)
+				if (_Position.Board[x, y].Piece != PieceType.NONE
+				    && _Position.Board[x, y].Direction == _Position.CurPlayer)
 				{
 					localPlayerMoveState = LocalPlayerMoveState.PickSource;
 					return;
@@ -304,9 +320,9 @@ namespace Shogiban
 				NewMove.To.x = x;
 				NewMove.To.y = y;
 				
-				bool NormalMoveValid = IsMoveValid(NewMove);
+				bool NormalMoveValid = _Position.IsMoveValid(NewMove);
 				NewMove.promote = true;
-				bool PromotedMoveValid = IsMoveValid(NewMove);
+				bool PromotedMoveValid = _Position.IsMoveValid(NewMove);
 
 				if (NormalMoveValid && !PromotedMoveValid)
 				{
@@ -339,6 +355,9 @@ namespace Shogiban
 		{
 			System.Console.WriteLine(String.Format("Clicked on hand {0}", piece.ToString()));
 
+			if (!(CurPlayerEngine is LocalPlayer))
+				return;
+			
 			switch (localPlayerMoveState)
 			{
 			case LocalPlayerMoveState.Wait:
@@ -362,8 +381,11 @@ namespace Shogiban
 		
 		public void PromotionClicked(bool promote)
 		{
-			//TODO switch (localPlayerMoveState)
 			System.Console.WriteLine("Promotion choosen: " + promote.ToString());
+			
+			if (localPlayerMoveState != LocalPlayerMoveState.PickPromotion)
+				return;
+			
 			_LocalPlayerMove.promote = promote;
 			
 			//move complete. send it to the player
@@ -404,126 +426,23 @@ namespace Shogiban
 			if (CurPlayerEngine is LocalPlayer)
 				localPlayerMoveState = LocalPlayerMoveState.PickSource;
 
-			OnPiecesChanged();
+			OnPositionChanged();
 		}
 #endregion
-
-		public void SetDefaultPosition()
-		{
-			if (gameState == GameState.Playing)
-				throw new InvalidOperationException("Can not set position while playing");
-			
-			int x, y;
-			
-			for (x = 0; x < BOARD_SIZE; x++)
-				for (y = 0; y < BOARD_SIZE / 2; y++)
-				{
-					Board[x, y].Direction = PieceDirection.DOWN;
-					Board[x, y].Piece = PieceType.NONE;
-				}
-			for (x = 0; x < BOARD_SIZE; x++)
-				for (y = BOARD_SIZE / 2; y < BOARD_SIZE; y++)
-				{
-					Board[x, y].Direction = PieceDirection.UP;
-					Board[x, y].Piece = PieceType.NONE;
-				}
-			
-			//white pieces
-			Board[0, 0].Piece = PieceType.KYOUSHA;
-			Board[1, 0].Piece = PieceType.KEIMA;
-			Board[2, 0].Piece = PieceType.GINSHOU;
-			Board[3, 0].Piece = PieceType.KINSHOU;
-			Board[4, 0].Piece = PieceType.OUSHOU;
-			Board[5, 0].Piece = PieceType.KINSHOU;
-			Board[6, 0].Piece = PieceType.GINSHOU;
-			Board[7, 0].Piece = PieceType.KEIMA;
-			Board[8, 0].Piece = PieceType.KYOUSHA;
-			Board[1, 1].Piece = PieceType.KAKUGYOU;
-			Board[7, 1].Piece = PieceType.HISHA;
-			y = 2;
-			for (x = 0; x < BOARD_SIZE; x++)
-			{
-				Board[x, y].Piece = PieceType.FUHYOU;
-			}
-			
-			//black pieces
-			Board[0, 8].Piece = PieceType.KYOUSHA;
-			Board[1, 8].Piece = PieceType.KEIMA;
-			Board[2, 8].Piece = PieceType.GINSHOU;
-			Board[3, 8].Piece = PieceType.KINSHOU;
-			Board[4, 8].Piece = PieceType.OUSHOU;
-			Board[5, 8].Piece = PieceType.KINSHOU;
-			Board[6, 8].Piece = PieceType.GINSHOU;
-			Board[7, 8].Piece = PieceType.KEIMA;
-			Board[8, 8].Piece = PieceType.KYOUSHA;
-			Board[1, 7].Piece = PieceType.HISHA;
-			Board[7, 7].Piece = PieceType.KAKUGYOU;
-			y = 6;
-			for (x = 0; x < BOARD_SIZE; x++)
-			{
-				Board[x, y].Piece = PieceType.FUHYOU;
-			}
-			
-			for (int i = 0; i < (int)PieceType.PIECE_TYPES_COUNT; i++)
-			{
-				OnHandPieces[0, i] = 0;
-				OnHandPieces[1, i] = 0;
-			}
-			
-			OnPiecesChanged();
-		}
-
-		public Position GetCurPosition()
-		{
-			Position CurPosition;
-			CurPosition.Board = (FieldInfo[,])Board.Clone();
-			CurPosition.OnHandPieces = (int[,])OnHandPieces.Clone();
-			CurPosition.CurPlayer = CurPlayer == BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN;
-			
-			return CurPosition;
-		}
-
 		//private methods
 		private void RestorePosition(ExtendedMove LastMove)
 		{
-			Board = (FieldInfo[,])LastMove.OriginalPosition.Board.Clone();
-			OnHandPieces = (int[,])LastMove.OriginalPosition.OnHandPieces.Clone();
-			CurPlayer = LastMove.OriginalPosition.CurPlayer == PieceDirection.UP ? BlackPlayer : WhitePlayer;
-			CurPlayerEngine = LastMove.OriginalPosition.CurPlayer == PieceDirection.UP ? BlackPlayerEngine : WhitePlayerEngine;
+			_Position = LastMove.OriginalPosition.Clone();
 		}
 		
-		private void AddMove(Move move)
+		private void AddMove(Position OriginalPosition, Move move)
 		{
 			ExtendedMove ExMove;
 			ExMove.move = move;
-			ExMove.OriginalPosition = GetCurPosition();
+			ExMove.OriginalPosition = OriginalPosition;
 			
 			Moves.Add(ExMove);
 			
-			//if a piece was captured add it to the own pieces on hand
-			if (Board[move.To.x, move.To.y].Piece != PieceType.NONE)
-			{
-				AddOnHandPiece(CurPlayer, Board[move.To.x, move.To.y].Piece.GetUnpromotedPiece());
-			}
-			
-			//check if the piece is from the hand or from the board
-			if (move.OnHandPiece != PieceType.NONE)
-			{
-				Board[move.To.x, move.To.y].Piece = move.OnHandPiece;
-				Board[move.To.x, move.To.y].Direction = CurPlayer == BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN;
-				RemoveOnHandPiece(CurPlayer, move.OnHandPiece);
-			}
-			else
-			{
-				Board[move.To.x, move.To.y] = Board[move.From.x, move.From.y];
-				if (move.promote)
-				{
-					Board[move.To.x, move.To.y].Piece = Board[move.To.x, move.To.y].Piece.GetPromotedPiece();
-				}
-				Board[move.From.x, move.From.y].Piece = PieceType.NONE;
-			}
-			
-			OnPiecesChanged();
 			OnMoveAdded(move);
 		}
 		
@@ -539,16 +458,6 @@ namespace Shogiban
 			Moves.Clear();
 			
 			OnMovesChanged();
-		}
-
-		private void AddOnHandPiece(Player player, PieceType Piece)
-		{
-			OnHandPieces[GetPlayerNumber(player), (int)Piece]++;
-		}
-
-		private void RemoveOnHandPiece(Player player, PieceType Piece)
-		{
-			OnHandPieces[GetPlayerNumber(player), (int)Piece]--;
 		}
 
 		private void SetPlayerEngine(ref IPlayerEngine CurEngine, IPlayerEngine NewEngine)
@@ -575,20 +484,6 @@ namespace Shogiban
 	    	}
 		}
 				
-		private void SwitchPlayer()
-		{
-			if (CurPlayer == BlackPlayer)
-			{
-				CurPlayerEngine = WhitePlayerEngine;
-				CurPlayer = WhitePlayer;
-			}
-			else
-			{
-				CurPlayerEngine = BlackPlayerEngine;
-				CurPlayer = BlackPlayer;
-			}
-		}
-
 		private void UpdateGameTimes()
 		{
 			if (GameTime.Ticks <= 0)
@@ -620,518 +515,6 @@ namespace Shogiban
         	TurnStartTime = DateTime.Now;
 		}
 		
-#region move validation
-		private ValidMoves[,] ValidBoardMoves = new ValidMoves[BOARD_SIZE ,BOARD_SIZE];
-		private ValidMoves[,] ValidOnHandMoves = new ValidMoves[PLAYER_COUNT, (int)PieceType.PIECE_TYPES_COUNT];
-		
-		public ValidMoves GetValidBoardMoves(BoardField From)
-		{
-			return ValidBoardMoves[From.x, From.y];
-			/*
-			ValidMoves moves = new ValidMoves();
-			for (int x = 0; x < BOARD_SIZE; x++)
-			{
-				for (int y = 0; y < BOARD_SIZE; y++)
-				{
-					BoardField curField = new BoardField(x, y);
-					moves.Add(curField);
-				}
-			}
-			return moves;*/
-		}
-
-		public ValidMoves GetValidOnHandMoves(PieceType piece, bool BlackPlayer)
-		{
-			return ValidOnHandMoves[BlackPlayer?0:1, (int)piece];
-		}
-
-		public bool IsMoveValid(Move move)
-		{
-			//validate move
-			ValidMoves validMoves;
-			
-			if (move.OnHandPiece == PieceType.NONE)
-			{
-				if (Board[move.From.x, move.From.y].Direction != (CurPlayer == BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN))
-					return false;
-				
-				//TODO check (forced) promotion
-				if (Board[move.From.x, move.From.y].Piece.CanPromote())
-				{
-					BoardField To = new BoardField(move.To.x, move.To.y);
-					if (CheckForcedPromotion(To, Board[move.From.x, move.From.y].Piece, CurPlayer == BlackPlayer) && move.promote == false)
-						return false;
-					
-					//these variables are turned as if seen from the
-					//black player to ease checking
-					int from_y_nor = move.From.y;
-					int to_y_nor = move.To.y;
-					if (CurPlayer == WhitePlayer)
-					{
-						from_y_nor = BOARD_SIZE - from_y_nor - 1;
-						to_y_nor = BOARD_SIZE - to_y_nor - 1;
-					}
-				
-					//no forced promotion, need to ask the player if he wants to promote
-					if (!(to_y_nor <= 2 || from_y_nor <= 2) && move.promote == true)
-					{
-						return false;
-					}
-				}
-				else if (move.promote == true)
-				{
-					//piece can not promote
-					return false;
-				}
-
-				validMoves = GetValidBoardMoves(move.From);
-			}
-			else
-			{
-				if (OnHandPieces[CurrentPlayerNumber, (int)move.OnHandPiece] <= 0)
-					return false;
-				if (move.promote == true)
-					return false;
-
-				validMoves = GetValidOnHandMoves(move.OnHandPiece, CurPlayer == BlackPlayer);
-			}
-			
-			if (validMoves == null)
-			{
-				return false;
-			}
-			
-			foreach (BoardField field in validMoves)
-			{
-				if (move.To.Equals(field))
-				{
-					return true;
-				}
-			}
-			
-			return false;
-		}
-
-		public bool CheckForcedPromotion(BoardField To, PieceType Piece, bool BlackPlayer)
-		{
-			//these variable is turned as if seen from the
-			//black player to ease checking
-			int to_y_nor = To.y;
-			if (!BlackPlayer)
-			{
-				to_y_nor = BOARD_SIZE - to_y_nor - 1;
-			}
-
-			//check for pawn or lance on the last line
-			if (to_y_nor == 0 
-			    && (Piece == PieceType.FUHYOU || Piece == PieceType.KYOUSHA))
-			{
-				return true;
-			}
-			//check for knight on the last 2 lines
-			else if (to_y_nor <= 1 && Piece == PieceType.KEIMA)
-			{
-				return true;
-			}
-			
-			return false;
-		}
-
-		//TODO remove dir parameter
-		private static bool PieceCanMoveTo(FieldInfo[,] TmpBoard, BoardField To, PieceDirection dir, ValidMoves PieceMoves)
-		{
-			//check board bounds
-			if (To.x < 0 || To.x >= BOARD_SIZE || To.y < 0 || To.y >= BOARD_SIZE)
-				return false;
-			
-			PieceMoves.Add(To);
-
-			//check if there is already a piece on the field
-			if (TmpBoard[To.x, To.y].Piece != PieceType.NONE)
-				return false;
-			
-			return true;
-		}
-		
-		private static ValidMoves GetMovesForPiece(FieldInfo[,] TmpBoard, BoardField From)
-		{
-			ValidMoves PieceMoves = new ValidMoves();
-			int Forward = TmpBoard[From.x, From.y].Direction == PieceDirection.UP ? -1 : 1;
-			
-			BoardField CurField;
-			
-			switch (TmpBoard[From.x, From.y].Piece)
-			{
-			case PieceType.OUSHOU:
-				CurField = new BoardField(From.x, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				break;
-			case PieceType.KINSHOU:
-			case PieceType.NARIGIN:
-			case PieceType.NARIKEI:
-			case PieceType.NARIKYOU:
-			case PieceType.TOKIN:
-				CurField = new BoardField(From.x, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				break;
-			case PieceType.GINSHOU:
-				CurField = new BoardField(From.x, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				break;
-			case PieceType.FUHYOU:
-				CurField = new BoardField(From.x, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				break;
-			case PieceType.KEIMA:
-				CurField = new BoardField(From.x + 1, From.y + 2 * Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y + 2 * Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				break;
-			case PieceType.KYOUSHA:
-				CurField = new BoardField(From.x, From.y + Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(From.x, CurField.y + Forward);
-				}
-				break;
-			case PieceType.HISHA:
-				CurField = new BoardField(From.x, From.y + Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(From.x, CurField.y + Forward);
-				}
-				CurField = new BoardField(From.x, From.y - Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(From.x, CurField.y - Forward);
-				}
-				CurField = new BoardField(From.x + 1, From.y);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x + 1, CurField.y);
-				}
-				CurField = new BoardField(From.x - 1, From.y);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x - 1, CurField.y);
-				}
-				break;
-			case PieceType.RYUUOU:
-				//moves from hisha
-				CurField = new BoardField(From.x, From.y + Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x, CurField.y + Forward);
-				}
-				CurField = new BoardField(From.x, From.y - Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x, CurField.y - Forward);
-				}
-				CurField = new BoardField(From.x + 1, From.y);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x + 1, CurField.y);
-				}
-				CurField = new BoardField(From.x - 1, From.y);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x - 1, CurField.y);
-				}
-				//ryuuou extra moves
-				CurField = new BoardField(From.x + 1, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				break;
-			case PieceType.KAKUGYOU:
-				CurField = new BoardField(From.x + 1, From.y + Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x + 1, CurField.y + Forward);
-				}
-				CurField = new BoardField(From.x - 1, From.y + Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x - 1, CurField.y + Forward);
-				}
-				CurField = new BoardField(From.x + 1, From.y - Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x + 1, CurField.y - Forward);
-				}
-				CurField = new BoardField(From.x - 1, From.y - Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x - 1, CurField.y - Forward);
-				}
-				break;
-			case PieceType.RYUUMA:
-				//moves from kakugyou
-				CurField = new BoardField(From.x + 1, From.y + Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x + 1, CurField.y + Forward);
-				}
-				CurField = new BoardField(From.x - 1, From.y + Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x - 1, CurField.y + Forward);
-				}
-				CurField = new BoardField(From.x + 1, From.y - Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x + 1, CurField.y - Forward);
-				}
-				CurField = new BoardField(From.x - 1, From.y - Forward);
-				while (PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves))
-				{
-					CurField = new BoardField(CurField.x - 1, CurField.y - Forward);
-				}
-				//ryuuma extra moves
-				CurField = new BoardField(From.x, From.y + Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x, From.y - Forward);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x + 1, From.y);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				CurField = new BoardField(From.x - 1, From.y);
-				PieceCanMoveTo(TmpBoard, CurField, TmpBoard[From.x, From.y].Direction, PieceMoves);
-				break;
-			default:
-				break;
-			}
-			
-			return PieceMoves;
-		}
-		
-		private ValidMoves GetDropsForPiece(PieceType Piece, PieceDirection Direction)
-		{
-			ValidMoves PieceMoves = new ValidMoves();
-			
-			for (int x = 0; x < BOARD_SIZE; x++)
-			{
-				for (int y = 0; y < BOARD_SIZE; y++)
-				{
-					if (Board[x, y].Piece != PieceType.NONE)
-						continue;
-					
-					if (Piece == PieceType.FUHYOU)
-					{
-						//check for 2 pawns in a column
-						bool found = false;
-						for (int i = 0; i < BOARD_SIZE; i++)
-						{
-							if (Board[x, i].Piece == PieceType.FUHYOU && Board[x, i].Direction == Direction)
-							{
-								found = true;
-								break;
-							}
-						}
-						if (found)
-						{
-							continue;
-						}
-						
-						//TODO check for mate with pawn
-					}
-					
-					BoardField To = new BoardField(x, y);
-					
-					if (CheckForcedPromotion(To, Piece, Direction == PieceDirection.UP))
-						continue;
-					
-					PieceMoves.Add(To);
-				}
-			}
-			
-			return PieceMoves;
-		}
-		
-		private static bool IsInCheck(FieldInfo[,] TmpBoard, PieceDirection PlayerDirection)
-		{
-			for (int x = 0; x < BOARD_SIZE; x++)
-			{
-				for (int y = 0; y < BOARD_SIZE; y++)
-				{
-					if (TmpBoard[x, y].Piece != PieceType.NONE && TmpBoard[x, y].Direction != PlayerDirection)
-					{
-						foreach (BoardField AttackedField in GetMovesForPiece(TmpBoard, new BoardField(x, y)))
-						{
-							if (TmpBoard[AttackedField.x, AttackedField.y].Piece == PieceType.OUSHOU
-								&& TmpBoard[AttackedField.x, AttackedField.y].Direction == PlayerDirection)
-							{
-								return true;
-							}
-						}
-					}
-				}
-			}
-			
-			return false;
-		}
-		
-		private void UpdateValidMoves()
-		{
-			//update oponents pieces and initialize moves
-			PieceDirection CurPlayerDirection = CurPlayer == BlackPlayer ? PieceDirection.UP : PieceDirection.DOWN;
-			
-			//bool InCheck = false;
-			FieldInfo[,] TmpBoard = (FieldInfo[,])Board.Clone();
-			// new FieldInfo[BOARD_SIZE, BOARD_SIZE];
-			
-			
-			for (int x = 0; x < BOARD_SIZE; x++)
-			{
-				for (int y = 0; y < BOARD_SIZE; y++)
-				{
-					ValidBoardMoves[x, y] = new ValidMoves();
-					if (Board[x, y].Piece != PieceType.NONE)
-					{
-						BoardField CurField = new BoardField(x, y);
-						
-						foreach (BoardField AttackedField in GetMovesForPiece(Board, CurField))
-						{
-							//can not move over own pieces
-							if (Board[AttackedField.x, AttackedField.y].Piece != PieceType.NONE && Board[AttackedField.x, AttackedField.y].Direction == Board[x, y].Direction)
-								continue;
-							
-							//TODO don't clone the whole board each time
-							TmpBoard = (FieldInfo[,])Board.Clone();
-							TmpBoard[AttackedField.x, AttackedField.y] = Board[x, y];
-							TmpBoard[x, y].Piece = PieceType.NONE;
-							
-							if (Board[AttackedField.x, AttackedField.y].Piece == PieceType.OUSHOU && Board[AttackedField.x, AttackedField.y].Direction != Board[x, y].Direction
-								|| !IsInCheck(TmpBoard, Board[x, y].Direction))
-							{
-								ValidBoardMoves[x, y].Add(AttackedField);
-								
-								/*
-								if (Board[AttackedField.x, AttackedField.y].Piece == PieceType.OUSHOU 
-									&& Board[AttackedField.x, AttackedField.y].Direction == CurPlayerDirection)
-								{
-									//InCheck = true;
-								}
-								*/
-							}
-							
-							//TmpBoard[AttackedField.x, AttackedField.y].Piece = PieceType.NONE;
-							//TmpBoard[x, y] = Board[x, y];
-						}
-					}
-				}
-			}
-
-			for (int PlayerNr = 0; PlayerNr < PLAYER_COUNT; PlayerNr++)
-			{
-				PieceDirection Direction = PlayerNr == 0 ? PieceDirection.UP : PieceDirection.DOWN;
-				
-				for (int i = 0; i < (int)PieceType.PIECE_TYPES_COUNT; i++)
-				{
-					ValidOnHandMoves[PlayerNr, i] = new ValidMoves();
-
-					if (OnHandPieces[PlayerNr, i] == 0)
-						continue;
-					
-					foreach (BoardField DropField in GetDropsForPiece((PieceType)i, Direction))
-					{
-						//TODO don't clone the whole board each time
-						TmpBoard = (FieldInfo[,])Board.Clone();
-						TmpBoard[DropField.x, DropField.y].Piece = (PieceType)i;
-						TmpBoard[DropField.x, DropField.y].Direction = Direction;
-						
-						if (!IsInCheck(TmpBoard, Direction))
-						{
-							ValidOnHandMoves[PlayerNr, i].Add(DropField);
-						}
-						
-						//TmpBoard[DropField.x, DropField.y] = Board[DropField.x, DropField.y];
-					}
-				}
-			}
-			
-			bool CanMove = false;
-			for (int x = 0; x < BOARD_SIZE; x++)
-			{
-				for (int y = 0; y < BOARD_SIZE; y++)
-				{
-					if (Board[x, y].Piece != PieceType.NONE 
-						&& Board[x, y].Direction != CurPlayerDirection
-						&& ValidBoardMoves[x, y].Count > 0)
-					{
-						System.Console.WriteLine(String.Format("CanMove: from {0}, {1} (count {2}, dir {3} == {4})", x, y, ValidBoardMoves[x, y].Count, Board[x, y].Direction.ToString(), CurPlayerDirection.ToString()));
-						CanMove = true;
-						break;
-					}
-				}
-				
-				if (CanMove)
-					break;
-			}
-			
-			if (!CanMove)
-			{
-				int OponentPlayerNr = CurPlayer == BlackPlayer ? 1 : 0;
-				for (int i = 0; i < (int)PieceType.PIECE_TYPES_COUNT; i++)
-				{
-					if (ValidOnHandMoves[OponentPlayerNr, i].Count > 0)
-					{
-						System.Console.WriteLine(String.Format("CanMove: from on hand {0} (count {1}, dir {2} == {3})", ((PieceType)i).ToString(), ValidOnHandMoves[OponentPlayerNr, i].Count, OponentPlayerNr, CurrentPlayerNumber));
-						CanMove = true;
-						break;
-					}
-				}
-			}
-			
-			if (!CanMove)
-			{
-				System.Console.WriteLine("can not move");
-				Mate = true;
-			}
-			else
-			{
-				Mate = false;
-			}
-		}
-#endregion
-		
 		//event handlers
 		private void HandleResign(object sender, ResignEventArgs e)
 		{
@@ -1157,21 +540,26 @@ namespace Shogiban
 			GameTimeOut.Enabled = false;
         	UpdateGameTimes();
    
-	       	if (IsMoveValid(e.move))
+			Position OriginalPosition = this.Position;
+      
+			_Position.DebugPrint();
+	       	if (_Position.ApplyMove(e.move))
         	{
-        		AddMove(e.move);
-    
-				System.Console.WriteLine("cheking for mate");
-        		if (Mate)
+				_Position.DebugPrint();
+        		AddMove(OriginalPosition, e.move);
+        		OnPositionChanged();
+				
+				System.Console.WriteLine("checking for mate");
+        		if (_Position.Mate)
         		{
         			//send last move to opponent
         			if (CurPlayer == BlackPlayer)
         			{
-        				WhitePlayerEngine.OponentMove(e.move);
+        				BlackPlayerEngine.OponentMove(e.move);
         			}
         			else
         			{
-        				BlackPlayerEngine.OponentMove(e.move);
+        				WhitePlayerEngine.OponentMove(e.move);
         			}
         			System.Console.WriteLine("mate");
         			EndGame("Mate");
@@ -1180,7 +568,7 @@ namespace Shogiban
         		//TODO check for sennichite
 
 				System.Console.WriteLine("no mate");
-        		SwitchPlayer();
+    
         		if (GameTime.Ticks > 0)
         		{
         			GameTimeOut.Interval = CurPlayer == BlackPlayer ? BlackTime.TotalMilliseconds : WhiteTime.TotalMilliseconds;
@@ -1242,20 +630,12 @@ namespace Shogiban
 		}
 		
 		//events
-		protected void OnPiecesChanged()
+		protected void OnPositionChanged()
 		{
-			UpdateValidMoves();
-			
-			if (PiecesChanged != null)
+			Console.WriteLine ("ShogiGame: OnPositionChanged");
+			if (PositionChanged != null)
 			{
-				PiecesChanged(this, new EventArgs());
-			}
-		}
-		protected void OnCurPlayerChanged()
-		{
-			if (CurPlayerChanged != null)
-			{
-				CurPlayerChanged(this, new EventArgs());
+				PositionChanged(this, new EventArgs());
 			}
 		}
 		protected void OnMoveAdded(Move move)
@@ -1283,8 +663,7 @@ namespace Shogiban
 		public event EventHandler<MoveAddedEventArgs> MoveAdded;
 		public event EventHandler MoveRemoved;
 		public event EventHandler MovesChanged;
-		public event EventHandler PiecesChanged;
-		public event EventHandler CurPlayerChanged;
+		public event EventHandler PositionChanged;
 		public event EventHandler GameStateChanged;
 	}
 	
@@ -1408,6 +787,11 @@ namespace Shogiban
 	{
 		public PieceType Piece;
 		public PieceDirection Direction;
+		
+		public override string ToString ()
+		{
+			return Piece.ToString() + " " + Direction.ToString();
+		}
 	}
 
 	public struct BoardField : IEquatable<BoardField>
@@ -1446,24 +830,6 @@ namespace Shogiban
 	    public static bool operator !=(BoardField a, BoardField b)
 	    {
 	    	return !a.Equals(b);
-		}
-	}
-	
-	public struct Position
-	{
-		public FieldInfo[,] Board;
-		public int[,] OnHandPieces;
-		public PieceDirection CurPlayer;
-		
-		public static Position GetEmptyPosition()
-		{
-			Position pos = new Position();
-			
-			pos.Board = new FieldInfo[Game.BOARD_SIZE, Game.BOARD_SIZE];
-			pos.OnHandPieces = new int[Game.PLAYER_COUNT, (int)PieceType.PIECE_TYPES_COUNT];
-			pos.CurPlayer = PieceDirection.UP;
-			
-			return pos;
 		}
 	}
 	
@@ -1535,4 +901,12 @@ namespace Shogiban
 		PickDestination,
 		PickPromotion
 	};
+	
+	public class SaveGame
+	{
+		Player BlackPlayer;
+		Player WhitePlayer;
+		
+		public System.Collections.Generic.List<ExtendedMove> Moves = new System.Collections.Generic.List<ExtendedMove>();
+	}
 }

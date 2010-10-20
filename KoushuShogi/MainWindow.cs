@@ -46,12 +46,10 @@ namespace Shogiban
 			UpdateMoveNavigationControls();
 			
 			game.GameStateChanged += HandleGameGameStateChanged;
-			game.CurPlayerChanged += HandleGameCurPlayerChanged;
+			game.PositionChanged += HandleGamePositionChanged;
 			game.MoveAdded += HandleGameMoveAdded;
 			game.MoveRemoved += HandleGameMoveRemoved;
 			game.MovesChanged += HandleGameMovesChanged;
-			
-			game.SetDefaultPosition();
 			
 			ShogibanBoardView.game = game;
 		}
@@ -170,7 +168,7 @@ namespace Shogiban
 			Application.Quit();
 		}
 
-		private void HandleGameCurPlayerChanged(object sender, EventArgs e)
+		private void HandleGamePositionChanged(object sender, EventArgs e)
 		{
 			SetStatusBarText(GetTurningPlayerString());
 		}
@@ -233,6 +231,44 @@ namespace Shogiban
 			new NewGameDialog(game).Run();
 		}
 		
+		protected virtual void OnOpenActionActivated(object sender, System.EventArgs e)
+		{
+			using (FileChooserDialog fd = new FileChooserDialog("Open shogi game", this, FileChooserAction.Open,
+					Gtk.Stock.Cancel, ResponseType.Cancel,
+					Gtk.Stock.Save, ResponseType.Accept))
+			{
+				FileFilter filter;
+				
+				using (filter = new FileFilter())
+				{
+					filter.Name = "All files";
+					filter.AddPattern("*");
+					fd.AddFilter(filter);
+				}
+				
+				using (filter = new FileFilter())
+				{
+					filter.Name = "PSN files";
+					filter.AddPattern("*.psn");
+					fd.AddFilter(filter);
+					fd.Filter = filter;
+				}
+				
+				if (fd.Run() == (int)ResponseType.Accept)
+				{
+					System.Console.WriteLine("opening file: " + fd.Filename);
+					
+					using (System.IO.FileStream stream = new System.IO.FileStream(fd.Filename, System.IO.FileMode.Open))
+					{
+						Shogiban.FileFormat.PSN.Open(game, stream);
+						stream.Close();
+					}
+				}
+				
+				fd.Destroy();
+			}
+		}
+
 		protected virtual void OnSaveGameActionActivated(object sender, System.EventArgs e)
 		{
 			using (FileChooserDialog fd = new FileChooserDialog("Save shogi game", this, FileChooserAction.Save,

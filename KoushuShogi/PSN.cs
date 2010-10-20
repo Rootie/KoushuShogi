@@ -44,6 +44,10 @@ namespace Shogiban.FileFormat
 			byte[] bytes = System.Text.Encoding.ASCII.GetBytes(data.ToString());
 			stream.Write(bytes, 0, bytes.Length);
 		}
+
+		public static void Open(Game game, Stream stream)
+		{
+		}
 	}
 }
 
