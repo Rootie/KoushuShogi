@@ -27,37 +27,6 @@ namespace Shogiban
     {
 		public static readonly int BOARD_SIZE = 9;
 		public static readonly int PLAYER_COUNT = 2;
-		private static readonly Char[] VerticalNamings = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i' };
-		public static Char[] GetVerticalNamings()
-		{
-			return (Char[])VerticalNamings.Clone();
-		}
-		private static readonly Char[] HorizontalNamings = { '1', '2', '3', '4', '5', '6', '7', '8', '9' };
-		public static Char[] GetHorizontalNamings()
-		{
-			return (Char[])HorizontalNamings.Clone();
-		}
-		private static readonly Char[] PieceNamings = {
-			' ', //NONE
-			'P', //FUHYOU    Pawn
-			' ', //TOKIN     Promoted Pawn
-			'L', //KYOUSHA   Lance
-			' ', //NARIKYOU  Promoted Lance
-			'N', //KEIMA     Knight
-			' ', //NARIKEI   Promoted Knight
-			'S', //GINSHOU   Silver General
-			' ', //NARIGIN   Promoted Silver
-			'G', //KINSHOU   Gold General
-			'B', //KAKUGYOU  Bishop
-			' ', //RYUUMA    Promoted Bishop (Horse)
-			'R', //HISHA     Rook
-			' ', //RYUUOU    Promoted Rook (Dragon)
-			' '  //OUSHOU    King
-		};
-		public static Char[] GetPieceNamings()
-		{
-			return (Char[])PieceNamings.Clone();
-		}
 
 		private GameState _gameState = GameState.Review;
 		public GameState gameState
@@ -265,6 +234,49 @@ namespace Shogiban
 			
 			BlackPlayerEngine.EndGame();
 			WhitePlayerEngine.EndGame();
+		}
+		
+		public void LoadSaveGame(SaveGame savegame)
+		{
+			if (savegame.BlackPlayer == null)
+			{
+				throw new Exception("BlackPlayer may not be null");
+			}
+			if (savegame.WhitePlayer == null)
+			{
+				throw new Exception("WhitePlayer may not be null");
+			}
+			if (savegame.BlackPlayer == savegame.WhitePlayer)
+			{
+				throw new Exception("BlackPlayer and WhitePlayer must differ");
+			}
+			
+			if (gameState == GameState.Playing)
+				EndGame();
+			
+			BlackPlayer = savegame.BlackPlayer;
+			WhitePlayer = savegame.WhitePlayer;
+			
+			ClearMoves();
+			
+			Position CurPosition = savegame.StartingPosition;
+			
+			foreach (Move move in savegame.Moves)
+			{
+				ExtendedMove exMove = new ExtendedMove();
+				exMove.move = move;
+				exMove.OriginalPosition = CurPosition.Clone();
+				if (!CurPosition.ApplyMove(move))
+				{
+					throw new Exception("Invalid move");
+				}
+				Moves.Add(exMove);
+			}
+			
+			_Position = CurPosition;
+			
+			OnPositionChanged();
+			OnMovesChanged();
 		}
 		
 		public void GetRemainingTimes(out TimeSpan Black, out TimeSpan White)
@@ -840,6 +852,10 @@ namespace Shogiban
 	
 	public struct Move
 	{
+		private static readonly Char[] VerticalNamings = CommonShogiNotationHelpers.GetVerticalNamings();
+		private static readonly Char[] HorizontalNamings = CommonShogiNotationHelpers.GetHorizontalNamings();
+		private static readonly Char[] PieceNamings = CommonShogiNotationHelpers.GetPieceNamings();
+		
 		public PieceType OnHandPiece;
 		public BoardField From;
 		public BoardField To;
@@ -861,17 +877,17 @@ namespace Shogiban
 			String s = String.Empty;
 			if (OnHandPiece != PieceType.NONE)
 			{
-				s += Game.GetPieceNamings()[(int)OnHandPiece];
+				s += PieceNamings[(int)OnHandPiece];
 				s += '*';
 			}
 			else
 			{
-				s += Game.GetHorizontalNamings()[From.x];
-				s += Game.GetVerticalNamings()[From.y];
+				s += HorizontalNamings[From.x];
+				s += VerticalNamings[From.y];
 			}
 			
-			s += Game.GetHorizontalNamings()[To.x];
-			s += Game.GetVerticalNamings()[To.y];
+			s += HorizontalNamings[To.x];
+			s += VerticalNamings[To.y];
 			
 			if (promote)
 			{
@@ -904,9 +920,11 @@ namespace Shogiban
 	
 	public class SaveGame
 	{
-		Player BlackPlayer;
-		Player WhitePlayer;
+		public Player BlackPlayer = new Player();
+		public Player WhitePlayer = new Player();
 		
-		public System.Collections.Generic.List<ExtendedMove> Moves = new System.Collections.Generic.List<ExtendedMove>();
+		public Position StartingPosition;
+		
+		public System.Collections.Generic.List<Move> Moves = new System.Collections.Generic.List<Move>();
 	}
 }

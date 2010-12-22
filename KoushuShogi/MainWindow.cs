@@ -31,6 +31,7 @@ namespace Shogiban
 		private static string[] authors = new string[] { "Gerhard Götz <rootie232@googlemail.com>" };
 
 		private Game game;
+		private uint MoveCount = 0;
 		private int CurMoveNr = -1;
 
 		public MainWindow() : base(Gtk.WindowType.Toplevel)
@@ -56,14 +57,21 @@ namespace Shogiban
 
 		void HandleGameMovesChanged(object sender, EventArgs e)
 		{
+			MoveCount = 0;
 			(MovesCB.Model as ListStore).Clear();
 			MovesCB.AppendText("Game Started");
-			MovesCB.Active = 0;
+			while (MoveCount < game.Moves.Count)
+			{
+				MovesCB.AppendText(MoveCount + ": " + game.Moves[(int)MoveCount].move.ToString());
+				MoveCount++;
+			}
+			MovesCB.Active = (int)MoveCount;
 			UpdateMoveNavigationControls();
 		}
 
 		void HandleGameMoveAdded(object sender, MoveAddedEventArgs e)
 		{
+			MoveCount++;
 			MovesCB.AppendText(game.Moves.Count + ": " + e.move.ToString());
 			UpdateMoveNavigationControls();
 		}
@@ -98,8 +106,8 @@ namespace Shogiban
 			
 			if (CurMoveNr < 0)
 			{
-				if (game.Moves.Count > 0)
-					MovesCB.Active = game.Moves.Count;
+				if (MoveCount > 0)
+					MovesCB.Active = (int)MoveCount;
 			}
 			else
 			{
@@ -162,8 +170,14 @@ namespace Shogiban
 
 		private void Quit()
 		{
-			game.BlackPlayerEngine.Dispose();
-			game.WhitePlayerEngine.Dispose();
+			if (game.BlackPlayerEngine != null)
+			{
+				game.BlackPlayerEngine.Dispose();
+			}
+			if (game.WhitePlayerEngine != null)
+			{
+				game.WhitePlayerEngine.Dispose();
+			}
 			
 			Application.Quit();
 		}
@@ -258,10 +272,43 @@ namespace Shogiban
 				{
 					System.Console.WriteLine("opening file: " + fd.Filename);
 					
-					using (System.IO.FileStream stream = new System.IO.FileStream(fd.Filename, System.IO.FileMode.Open))
+					try
 					{
-						Shogiban.FileFormat.PSN.Open(game, stream);
-						stream.Close();
+						using (System.IO.FileStream stream = new System.IO.FileStream(fd.Filename, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read))
+						{
+							SaveGame savegame = null;
+							bool error = false;
+							try
+							{
+								Shogiban.FileFormat.PSN.Open(out savegame, stream);
+							}
+							catch (Exception ex)
+							{
+								error = true;
+								MessageDialog dialog = new MessageDialog(this, DialogFlags.Modal, MessageType.Error, ButtonsType.Ok, false, "Parsing the file {0} failed.", fd.Filename);
+								dialog.SecondaryText = ex.Message;
+								dialog.Run();
+								dialog.Destroy();
+								Console.WriteLine("Parsing failed: " + ex.ToString());
+							}
+							finally
+							{
+								stream.Close();
+							}
+							
+							if (!error)
+							{
+								game.LoadSaveGame(savegame);
+							}
+						}
+					}
+					catch (Exception ex)
+					{
+						MessageDialog dialog = new MessageDialog(this, DialogFlags.Modal, MessageType.Error, ButtonsType.Ok, false, "Opening the file {0} failed.", fd.Filename);
+						dialog.SecondaryText = ex.Message;
+						dialog.Run();
+						dialog.Destroy();
+						Console.WriteLine("Loading failed: " + ex.ToString());
 					}
 				}
 				
@@ -297,10 +344,21 @@ namespace Shogiban
 				{
 					System.Console.WriteLine("saving file: " + fd.Filename);
 				
-					using (System.IO.FileStream stream = new System.IO.FileStream(fd.Filename, System.IO.FileMode.Create))
+					try
 					{
-						Shogiban.FileFormat.PSN.Save(game, stream);
-						stream.Close();
+						using (System.IO.FileStream stream = new System.IO.FileStream(fd.Filename, System.IO.FileMode.Create))
+						{
+							Shogiban.FileFormat.PSN.Save(game, stream);
+							stream.Close();
+						}
+					}
+					catch (Exception ex)
+					{
+						MessageDialog dialog = new MessageDialog(this, DialogFlags.Modal, MessageType.Error, ButtonsType.Ok, false, "Saving the file {0} failed.", fd.Filename);
+						dialog.SecondaryText = ex.Message;
+						dialog.Run();
+						dialog.Destroy();
+						Console.WriteLine("Saving failed: " + ex.ToString());
 					}
 				}
 			

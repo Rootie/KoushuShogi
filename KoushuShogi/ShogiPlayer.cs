@@ -25,8 +25,8 @@ namespace Shogiban
 {
 	public class Player
 	{
-		public String Name;
-		public String Rank;
+		public String Name = String.Empty;
+		public String Rank = String.Empty;
 	}
 	
 	public interface IPlayerEngine : IDisposable

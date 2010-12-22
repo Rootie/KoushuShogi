@@ -704,7 +704,7 @@ namespace Shogiban
 				{
 					if (Board[x, y].Piece != PieceType.NONE)
 					{
-						Console.Write(Game.GetPieceNamings()[(int)Board[x, y].Piece]);
+						Console.Write(CommonShogiNotationHelpers.GetPieceNamings()[(int)Board[x, y].Piece]);
 					}
 					else
 					{

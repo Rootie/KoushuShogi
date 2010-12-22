@@ -73,6 +73,7 @@
     <Compile Include="NewGameDialog.cs" />
     <Compile Include="gtk-gui\Shogiban.NewGameDialog.cs" />
     <Compile Include="ShogiPosition.cs" />
+    <Compile Include="CommonShogiNotationHelpers.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="app.desktop">

@@ -52,6 +52,9 @@ namespace Shogiban
 		private const double BLACK_ON_HAND_AREA_Y_START = PADDING;
 		private static readonly double BLACK_ON_HAND_AREA_Y_END   = BLACK_ON_HAND_AREA_Y_START + ON_HAND_AREA_HEIGHT;
 		
+		private static readonly Char[] VerticalNamings = CommonShogiNotationHelpers.GetVerticalNamings();
+		private static readonly Char[] HorizontalNamings = CommonShogiNotationHelpers.GetHorizontalNamings();
+
 		private Color BoardColor         = new Color(168 / 255f, 103 / 255f,  54 / 255f);
 		private Color BorderColor        = new Color(210 / 255f, 160 / 255f, 100 / 255f);
 		private Color SelectedFieldColor = new Color(168 / 255f, 140 / 255f,  54 / 255f);
@@ -337,9 +340,6 @@ namespace Shogiban
 			cr.SelectFontFace("Sans", FontSlant.Normal, FontWeight.Normal);
 			cr.SetFontSize(FIELD_NAMING_SIZE * 0.9);
 			cr.Color = new Color(0, 0, 0);
-			
-			Char[] VerticalNamings = Game.GetVerticalNamings();
-			Char[] HorizontalNamings = Game.GetHorizontalNamings();
 			
 			for (int i = 0; i < VerticalNamings.Length; i++)
 			{

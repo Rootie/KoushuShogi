@@ -26,26 +26,10 @@ namespace Shogiban
 {
 	public class GnuShogiPlayer : IPlayerEngine
 	{
-		private static readonly Char[] VerticalNamings = {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'};
-		private static readonly Char[] HorizontalNamings = {'1', '2', '3', '4', '5', '6', '7', '8', '9'};
-		private static readonly Char[] PieceNamings = {
-			' ', //NONE
-			'P', //FUHYOU    Pawn
-			' ', //TOKIN     Promoted Pawn
-			'L', //KYOUSHA   Lance
-			' ', //NARIKYOU  Promoted Lance
-			'N', //KEIMA     Knight
-			' ', //NARIKEI   Promoted Knight
-			'S', //GINSHOU   Silver General
-			' ', //NARIGIN   Promoted Silver
-			'G', //KINSHOU   Gold General
-			'B', //KAKUGYOU  Bishop
-			' ', //RYUUMA    Promoted Bishop (Horse)
-			'R', //HISHA     Rook
-			' ', //RYUUOU    Promoted Rook (Dragon)
-			'k'  //OUSHOU    King
-		};
-
+		private static readonly Char[] VerticalNamings = CommonShogiNotationHelpers.GetVerticalNamings();
+		private static readonly Char[] HorizontalNamings = CommonShogiNotationHelpers.GetHorizontalNamings();
+		private static readonly Char[] PieceNamings = CommonShogiNotationHelpers.GetPieceNamings();
+		
 		private bool Playing = false;
 
 		private System.Diagnostics.Process ShogiProc;
@@ -198,61 +182,22 @@ namespace Shogiban
 		}
 		#endregion
 
-		private PieceType GetPieceByName(Char Name)
-		{
-			for (int i = 0; i < PieceNamings.Length; i++)
-			{
-				if (Name == PieceNamings[i])
-				{
-					return (PieceType)i;
-				}
-			}
-			
-			throw new Exception("Invalid piece type '" + Name + "'."); //TODO make specific exception
-		}
-
-		private int GetColByName(Char Name)
-		{
-			for (int i = 0; i < HorizontalNamings.Length; i++)
-			{
-				if (Name == HorizontalNamings[i])
-				{
-					return i;
-				}
-			}
-			
-			throw new Exception("Invalid column '" + Name + "'."); //TODO make specific exception
-		}
-
-		private int GetRowByName(Char Name)
-		{
-			for (int i = 0; i < VerticalNamings.Length; i++)
-			{
-				if (Name == VerticalNamings[i])
-				{
-					return i;
-				}
-			}
-			
-			throw new Exception("Invalid row '" + Name + "'."); //TODO make specific exception
-		}
-
 		private Move MoveFromString(String MoveStr)
 		{
 			Move move = new Move();
 			
 			if (MoveStr[1] == '*')
 			{
-				move.OnHandPiece = GetPieceByName(MoveStr[0]);
+				move.OnHandPiece = CommonShogiNotationHelpers.GetPieceByName(MoveStr[0]);
 			}
 			else
 			{
-				move.From.x = GetColByName(MoveStr[0]);
-				move.From.y = GetRowByName(MoveStr[1]);
+				move.From.x = CommonShogiNotationHelpers.GetColByName(MoveStr[0]);
+				move.From.y = CommonShogiNotationHelpers.GetRowByName(MoveStr[1]);
 			}
 			
-			move.To.x = GetColByName(MoveStr[2]);
-			move.To.y = GetRowByName(MoveStr[3]);
+			move.To.x = CommonShogiNotationHelpers.GetColByName(MoveStr[2]);
+			move.To.y = CommonShogiNotationHelpers.GetRowByName(MoveStr[3]);
 			
 			move.promote = MoveStr.Contains("+");
 			
