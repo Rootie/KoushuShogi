@@ -67,14 +67,14 @@ namespace Shogiban
 				
 				switch (BlackPlayerEngineCB.Active)
 				{
-				case 0:
-					BlackPlayerEngineType = typeof(LocalPlayer);
-					break;
-				case 1:
-					BlackPlayerEngineType = typeof(GnuShogiPlayer);
-					break;
-				default:
-					break;
+					case 0:
+						BlackPlayerEngineType = typeof(LocalPlayer);
+						break;
+					case 1:
+						BlackPlayerEngineType = typeof(GnuShogiPlayer);
+						break;
+					default:
+						break;
 				}
 				if (game.BlackPlayerEngine == null || BlackPlayerEngineType != game.BlackPlayerEngine.GetType())
 				{
@@ -88,14 +88,14 @@ namespace Shogiban
 
 				switch (WhitePlayerEngineCB.Active)
 				{
-				case 0:
-					WhitePlayerEngineType = typeof(LocalPlayer);
-					break;
-				case 1:
-					WhitePlayerEngineType = typeof(GnuShogiPlayer);
-					break;
-				default:
-					break;
+					case 0:
+						WhitePlayerEngineType = typeof(LocalPlayer);
+						break;
+					case 1:
+						WhitePlayerEngineType = typeof(GnuShogiPlayer);
+						break;
+					default:
+						break;
 				}
 				if (game.WhitePlayerEngine == null || WhitePlayerEngineType != game.WhitePlayerEngine.GetType())
 				{
@@ -118,7 +118,59 @@ namespace Shogiban
 				}
 				
 				Position Pos = new Position();
-				Pos.SetDefaultPosition();
+				switch (StartingPositionCB.Active)
+				{
+					//standard game
+					case 0:
+						Pos.SetDefaultPosition();
+						break;
+					//position from current game
+					case 1:
+						break;
+					//Lance Handicap
+					case 2:
+						Pos.SetHandicapPosition(Handicaps.Lance);
+						break;
+					//Bishop Handicap
+					case 3:
+						Pos.SetHandicapPosition(Handicaps.Bishop);
+						break;
+					//Rook Handicap
+					case 4:
+						Pos.SetHandicapPosition(Handicaps.Rook);
+						break;
+					//Rook and Lance Handicap
+					case 5:
+						Pos.SetHandicapPosition(Handicaps.RookAndLance);
+						break;
+					//Two Piece Handicap
+					case 6:
+						Pos.SetHandicapPosition(Handicaps.TwoPiece);
+						break;
+					//Four Piece Handicap
+					case 7:
+						Pos.SetHandicapPosition(Handicaps.FourPiece);
+						break;
+					//Five Piece Left Handicap
+					case 8:
+						Pos.SetHandicapPosition(Handicaps.FivePieceLeft);
+						break;
+					//Five Piece Right Handicap
+					case 9:
+						Pos.SetHandicapPosition(Handicaps.FivePieceRight);
+						break;
+					//Six Piece Handicap
+					case 10:
+						Pos.SetHandicapPosition(Handicaps.SixPiece);
+						break;
+					//Eight Piece Handicap
+					case 11:
+						Pos.SetHandicapPosition(Handicaps.EightPiece);
+						break;
+					default:
+						Pos.SetDefaultPosition();
+						break;
+				}
 				game.Position = Pos;
 				Player StartingPlayer = BlackRB.Active ? game.BlackPlayer : game.WhitePlayer;
 				Console.WriteLine("OnResponse: starting game");

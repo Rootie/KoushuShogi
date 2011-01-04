@@ -126,6 +126,10 @@ namespace Shogiban
 			return ValidBoardMoves[From.x, From.y];
 		}
 
+		public ValidMoves GetValidOnHandMoves(PieceType piece)
+		{
+			return GetValidOnHandMoves(piece, CurPlayer == PieceDirection.UP);
+		}
 		public ValidMoves GetValidOnHandMoves(PieceType piece, bool BlackPlayer)
 		{
 			if (Dirty)
@@ -505,7 +509,7 @@ namespace Shogiban
 		{
 			lock (this)
 			{
-			Console.WriteLine("UpdateValidMoves enter: ThreadID" + System.Threading.Thread.CurrentThread.ManagedThreadId);
+			//Console.WriteLine("UpdateValidMoves enter: ThreadID" + System.Threading.Thread.CurrentThread.ManagedThreadId);
 			//update oponents pieces and initialize moves
 			//TODO remove this var and use CurPlayer directly
 			PieceDirection CurPlayerDirection = CurPlayer;
@@ -593,7 +597,7 @@ namespace Shogiban
 						&& Board[x, y].Direction == CurPlayerDirection
 						&& ValidBoardMoves[x, y].Count > 0)
 					{
-						System.Console.WriteLine(String.Format("CanMove: from {0}, {1} (count {2}, dir {3} == {4})", x, y, ValidBoardMoves[x, y].Count, Board[x, y].Direction.ToString(), CurPlayerDirection.ToString()));
+						//System.Console.WriteLine(String.Format("CanMove: from {0}, {1} (count {2}, dir {3} == {4})", x, y, ValidBoardMoves[x, y].Count, Board[x, y].Direction.ToString(), CurPlayerDirection.ToString()));
 						CanMove = true;
 						break;
 					}
@@ -610,7 +614,7 @@ namespace Shogiban
 				{
 					if (ValidOnHandMoves[CurPlayerNumber, i].Count > 0)
 					{
-						System.Console.WriteLine(String.Format("CanMove: from on hand {0} (count {1})", ((PieceType)i).ToString(), ValidOnHandMoves[CurPlayerNumber, i].Count));
+						//System.Console.WriteLine(String.Format("CanMove: from on hand {0} (count {1})", ((PieceType)i).ToString(), ValidOnHandMoves[CurPlayerNumber, i].Count));
 						CanMove = true;
 						break;
 					}
@@ -629,7 +633,7 @@ namespace Shogiban
 			
 			Dirty = false;
 			
-			Console.WriteLine("UpdateValidMoves leave");
+			//Console.WriteLine("UpdateValidMoves leave");
 			}
 		}
 		
@@ -637,6 +641,7 @@ namespace Shogiban
 		{
 			int x, y;
 			
+			//clear board
 			for (x = 0; x < Game.BOARD_SIZE; x++)
 				for (y = 0; y < Game.BOARD_SIZE / 2; y++)
 				{
@@ -649,6 +654,12 @@ namespace Shogiban
 					Board[x, y].Direction = PieceDirection.UP;
 					Board[x, y].Piece = PieceType.NONE;
 				}
+			//clear on hand pieces
+			for (int i = 0; i < (int)PieceType.PIECE_TYPES_COUNT; i++)
+			{
+				OnHandPieces[0, i] = 0;
+				OnHandPieces[1, i] = 0;
+			}
 			
 			//white pieces
 			Board[0, 0].Piece = PieceType.KYOUSHA;
@@ -686,34 +697,101 @@ namespace Shogiban
 				Board[x, y].Piece = PieceType.FUHYOU;
 			}
 			
-			for (int i = 0; i < (int)PieceType.PIECE_TYPES_COUNT; i++)
-			{
-				OnHandPieces[0, i] = 0;
-				OnHandPieces[1, i] = 0;
-			}
-			
 			Dirty = true;
 		}
 
+		public void SetHandicapPosition(Handicaps Handicap)
+		{
+			SetDefaultPosition();
+			
+			switch (Handicap)
+			{
+				case Handicaps.None:
+					break;
+				case Handicaps.Lance:
+					Board[0, 0].Piece = PieceType.NONE;
+					break;
+				case Handicaps.Bishop:
+					Board[1, 1].Piece = PieceType.NONE;
+					break;
+				case Handicaps.Rook:
+					Board[7, 1].Piece = PieceType.NONE;
+					break;
+				case Handicaps.RookAndLance:
+					Board[0, 0].Piece = PieceType.NONE;
+					Board[7, 1].Piece = PieceType.NONE;
+					break;
+				case Handicaps.TwoPiece:
+					Board[1, 1].Piece = PieceType.NONE;
+					Board[7, 1].Piece = PieceType.NONE;
+					break;
+				case Handicaps.FourPiece:
+					Board[0, 0].Piece = PieceType.NONE;
+					Board[8, 0].Piece = PieceType.NONE;
+					Board[1, 1].Piece = PieceType.NONE;
+					Board[7, 1].Piece = PieceType.NONE;
+					break;
+				case Handicaps.FivePieceLeft:
+					Board[0, 0].Piece = PieceType.NONE;
+					Board[8, 0].Piece = PieceType.NONE;
+					Board[1, 0].Piece = PieceType.NONE;
+					Board[1, 1].Piece = PieceType.NONE;
+					Board[7, 1].Piece = PieceType.NONE;
+					break;
+				case Handicaps.FivePieceRight:
+					Board[0, 0].Piece = PieceType.NONE;
+					Board[8, 0].Piece = PieceType.NONE;
+					Board[7, 0].Piece = PieceType.NONE;
+					Board[1, 1].Piece = PieceType.NONE;
+					Board[7, 1].Piece = PieceType.NONE;
+					break;
+				case Handicaps.SixPiece:
+					Board[0, 0].Piece = PieceType.NONE;
+					Board[8, 0].Piece = PieceType.NONE;
+					Board[1, 0].Piece = PieceType.NONE;
+					Board[7, 0].Piece = PieceType.NONE;
+					Board[1, 1].Piece = PieceType.NONE;
+					Board[7, 1].Piece = PieceType.NONE;
+					break;
+				case Handicaps.EightPiece:
+					Board[0, 0].Piece = PieceType.NONE;
+					Board[8, 0].Piece = PieceType.NONE;
+					Board[1, 0].Piece = PieceType.NONE;
+					Board[7, 0].Piece = PieceType.NONE;
+					Board[2, 0].Piece = PieceType.NONE;
+					Board[6, 0].Piece = PieceType.NONE;
+					Board[1, 1].Piece = PieceType.NONE;
+					Board[7, 1].Piece = PieceType.NONE;
+					break;
+				default:
+					throw new Exception("Unknown handicap: " + Handicap.ToString());
+			}
+		}
+		
 		public void DebugPrint()
 		{
+			Console.WriteLine(" | 9| 8| 7| 6| 5| 4| 3| 2| 1|");
 			for (int y = 0; y < 9; y++)
 			{
+				Console.Write(CommonShogiNotationHelpers.GetVerticalNamings()[y]);
 				Console.Write("|");
 				for (int x = 8; x >= 0; x--)
 				{
 					if (Board[x, y].Piece != PieceType.NONE)
 					{
 						Console.Write(CommonShogiNotationHelpers.GetPieceNamings()[(int)Board[x, y].Piece]);
+						Console.Write(Board[x, y].Direction == PieceDirection.UP ? 'b' : 'w');
 					}
 					else
 					{
-						Console.Write(" ");
+						Console.Write("  ");
 					}
 					Console.Write("|");
 				}
+				Console.Write(CommonShogiNotationHelpers.GetVerticalNamings()[y]);
 				Console.Write(Environment.NewLine);
 			}
+			Console.WriteLine(" | 9| 8| 7| 6| 5| 4| 3| 2| 1|");
 		}
 		
 		private void AddOnHandPiece(PieceDirection dir, PieceType Piece)
@@ -732,6 +810,26 @@ namespace Shogiban
 		{
 			return dir == PieceDirection.UP ? 0 : 1;
 		}
+	}
+	
+	public class ValidMoves : System.Collections.Generic.List<BoardField>
+	{
+		public ValidMoves() : base(Game.BOARD_SIZE*Game.BOARD_SIZE) {}
+	}
+	
+	public enum Handicaps 
+	{
+		None,
+		Lance,
+		Bishop,
+		Rook,
+		RookAndLance,
+		TwoPiece,
+		FourPiece,
+		FivePieceLeft,
+		FivePieceRight,
+		SixPiece,
+		EightPiece,
 	}
 }
 

@@ -40,7 +40,7 @@ namespace Shogiban
 			' ', //RYUUMA    Promoted Bishop (Horse)
 			'R', //HISHA     Rook
 			' ', //RYUUOU    Promoted Rook (Dragon)
-			'k'  //OUSHOU    King
+			'K'  //OUSHOU    King
 		};
 		
 		public static Char[] GetVerticalNamings()

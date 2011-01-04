@@ -808,6 +808,9 @@ namespace Shogiban
 
 	public struct BoardField : IEquatable<BoardField>
 	{
+		private static readonly Char[] VerticalNamings = CommonShogiNotationHelpers.GetVerticalNamings();
+		private static readonly Char[] HorizontalNamings = CommonShogiNotationHelpers.GetHorizontalNamings();
+		
 		public int x;
 		public int y;
 		
@@ -829,6 +832,17 @@ namespace Shogiban
 			return (x == Field.x) && (y == Field.y);
 		}
 		
+		public override string ToString()
+		{
+			if (x < 0 || y < 0
+				|| x > HorizontalNamings.Length
+				|| y > VerticalNamings.Length)
+			{
+				return "Invalid Move";
+			}
+			return String.Format("{0}{1}", HorizontalNamings[x], VerticalNamings[y]);
+		}
+		
 		public override int GetHashCode()
 		{
 			return x ^ y;
@@ -843,11 +857,6 @@ namespace Shogiban
 	    {
 	    	return !a.Equals(b);
 		}
-	}
-	
-	public class ValidMoves : System.Collections.Generic.List<BoardField>
-	{
-		public ValidMoves() : base(Game.BOARD_SIZE*Game.BOARD_SIZE) {}
 	}
 	
 	public struct Move

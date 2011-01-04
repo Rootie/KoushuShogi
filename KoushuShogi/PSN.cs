@@ -50,6 +50,10 @@ namespace Shogiban.FileFormat
 			savegame = new SaveGame();
 			savegame.StartingPosition = new Position();
 			savegame.StartingPosition.SetDefaultPosition();
+			Position CurPosition = new Position();
+			CurPosition.SetDefaultPosition();
+			
+			BoardField LastTarget = new BoardField(-1, -1);
 			
 			StreamReader sr = new StreamReader(stream);
 			
@@ -57,17 +61,16 @@ namespace Shogiban.FileFormat
 			
 			while (!sr.EndOfStream)
 			{
-				int StartChar = sr.Read();
-				//Console.WriteLine("StartChar: '" + (Char)StartChar + "' (" + StartChar + ")");
+				int CurChar = sr.Read();
 				
-				if (StartChar == '[')
+				if (CurChar == '[')
 				{
 					//Header field
 					StringBuilder HeaderStrData = new StringBuilder();
 					while (true)
 					{
-						StartChar = sr.Read();
-						if (StartChar.Equals(']'))
+						CurChar = sr.Read();
+						if (CurChar.Equals(']'))
 						{
 							String HeaderStr = HeaderStrData.ToString();
 							int HeaderSepIdx = 0;
@@ -105,30 +108,75 @@ namespace Shogiban.FileFormat
 									savegame.WhitePlayer.Name = Value;
 									break;
 								case "handicap":
-									throw new Exception("Handicap games are not supported by the PSN Loader at the moment.");
-									//break;
+									Handicaps Handicap = Handicaps.None;
+									switch (Value.ToLower())
+									{
+										case "even":
+											break;
+										case "lance":
+											Handicap = Handicaps.Lance;
+											break;
+										case "bishop":
+											Handicap = Handicaps.Bishop;
+											break;
+										case "rook":
+											Handicap = Handicaps.Rook;
+											break;
+										case "rook and lance":
+										case "rook & lance":
+										case "rook + lance":
+										case "rook+lance":
+											Handicap = Handicaps.RookAndLance;
+											break;
+										case "two piece":
+										case "two pieces":
+										case "rook and bishop":
+										case "rook & bishop":
+										case "rook + bishop":
+										case "rook+bishop":
+											Handicap = Handicaps.TwoPiece;
+											break;
+										case "four piece":
+										case "four pieces":
+											Handicap = Handicaps.FourPiece;
+											break;
+										case "six piece":
+										case "six pieces":
+											Handicap = Handicaps.SixPiece;
+											break;
+										case "eight piece":
+										case "eight pieces":
+											Handicap = Handicaps.EightPiece;
+											break;
+										default:
+											throw new Exception("Unknown handicap: " + Value);
+										//break;
+									}
+									savegame.StartingPosition.SetHandicapPosition(Handicap);
+									CurPosition.SetHandicapPosition(Handicap);
+									break;
 								default:
 									break;
 							}
 							break;
 						}
-						else if (StartChar < 0)
+						else if (CurChar < 0)
 						{
 							//TODO warning: unexpected end of file
 							break;
 						}
 						
 						
-						HeaderStrData.Append((char)StartChar);
+						HeaderStrData.Append((char)CurChar);
 					}
 				}
-				else if (StartChar == '{')
+				else if (CurChar == '{')
 				{
 					//TODO ignoring comments at the moment
 					while (true)
 					{
-						StartChar = sr.Read();
-						if (StartChar == '}')
+						CurChar = sr.Read();
+						if (CurChar == '}')
 						{
 							//Comment
 							if (InHeaderArea)
@@ -142,31 +190,77 @@ namespace Shogiban.FileFormat
 							
 							break;
 						}
-						else if (StartChar < 0)
+
+						else if (CurChar < 0)
 						{
 							//TODO warning: unexpected end of file
 							break;
 						}
 					}
 				}
-				else if (System.Char.IsLetter((Char)StartChar))
+				else if (CurChar == '(')
 				{
-					//Move
-					StringBuilder MoveStr = new StringBuilder();
-					MoveStr.Append((Char)StartChar);
+					int Count = 0;
+					//TODO ignoring variations at the moment
 					while (true)
 					{
-						StartChar = sr.Read();
-						if (System.Char.IsWhiteSpace((Char)StartChar) || StartChar < 0)
+						CurChar = sr.Read();
+						if (CurChar == ')')
 						{
-							System.Console.WriteLine(MoveStr.ToString());
+							if (Count == 0)
+								break;
 							
-							if (MoveStr.Length < 1)
+							Count--;
+						}
+						else if (CurChar == '(')
+						{
+							Count++;
+						}
+						else if (CurChar < 0)
+						{
+							//TODO warning: unexpected end of file
+							break;
+						}
+					}
+				}
+				else if (Char.IsDigit((Char)CurChar) || Char.IsLetter((Char)CurChar) || CurChar == '+')
+				{
+					//Move
+					StringBuilder MoveStrData = new StringBuilder();
+					MoveStrData.Append((Char)CurChar);
+					while (true)
+					{
+						CurChar = sr.Read();
+						if (System.Char.IsWhiteSpace((Char)CurChar) || CurChar < 0)
+						{
+							String MoveStr = MoveStrData.ToString();
+							System.Console.WriteLine(" -----------> Parsing move: " + MoveStr + " <-----------");
+							
+							int CurIdx = MoveStr.IndexOf('.') + 1;
+							if ((MoveStr.Length - CurIdx) < 1)
+							{
+								break;
+							}
+							if ((MoveStr.Length - CurIdx) > 9)
 							{
 								//invalid move
 								//TODO better error handling
-								return;
+								throw new Exception("Invalid move: move too long: " + MoveStr);
 							}
+							
+							if (MoveStr.EndsWith("..."))
+							{
+								savegame.StartingPosition.CurPlayer = PieceDirection.DOWN;
+								CurPosition.CurPlayer = PieceDirection.DOWN;
+								break;
+							}
+							if (MoveStr.EndsWith("0-1") || MoveStr.EndsWith("1-0"))
+							{
+								//game result
+								//just ignoring it
+								break;
+							}
+							
 							Move CurMove = new Move();
 							
 							if (MoveStr[MoveStr.Length - 1] == '+')
@@ -174,50 +268,424 @@ namespace Shogiban.FileFormat
 								CurMove.promote = true;
 							}
 							
-							int FromIdx = 0;
-							if (MoveStr[1] == '*')
+							PieceType SourcePieceType = PieceType.NONE;
+							PieceType TargetPieceType = PieceType.NONE;
+							CurMove.From.x = -1;
+							CurMove.From.y = -1;
+							CurMove.To.x = -1;
+							CurMove.To.y = -1;
+							bool SourceMayBeTarget = true;
+							bool IsHittingEnemyPiece = false;
+							bool FoundSourceParts = false;
+							bool FoundTargetParts = false;
+							
+							if (MoveStr.Length > 3 && MoveStr[CurIdx + 1] == '*')
 							{
-								CurMove.OnHandPiece = CommonShogiNotationHelpers.GetPieceByName(MoveStr[0]);
+								CurMove.OnHandPiece = CommonShogiNotationHelpers.GetPieceByName(MoveStr[CurIdx]);
+								SourceMayBeTarget = false;
+								CurIdx += 2;
+								FoundSourceParts = true;
 							}
 							else
 							{
-								if (!Char.IsDigit(MoveStr[0]))
-									FromIdx = 1;
+								bool SoureIsPromoted = false;
+								if (MoveStr.Length > CurIdx && MoveStr[CurIdx] == '+')
+								{
+									CurIdx++;
+									SoureIsPromoted = true;
+								}
+								if (MoveStr.Length > CurIdx)
+								{
+									try
+									{
+										SourcePieceType = CommonShogiNotationHelpers.GetPieceByName(MoveStr[CurIdx]);
+										if (SoureIsPromoted)
+										{
+											SourcePieceType = SourcePieceType.GetPromotedPiece();
+										}
+										CurIdx++;
+										FoundSourceParts = true;
+									}
+									catch
+									{
+										if (SoureIsPromoted)
+										{
+											throw new Exception("Invalid format: Expected source piece type: " + MoveStr);
+										}
+									}
+								}
 								
-								CurMove.From.x = CommonShogiNotationHelpers.GetColByName(MoveStr[FromIdx]);
-								CurMove.From.y = CommonShogiNotationHelpers.GetRowByName(MoveStr[FromIdx + 1]);
+								if (MoveStr.Length > CurIdx)
+								{
+									try
+									{
+										CurMove.From.x = CommonShogiNotationHelpers.GetColByName(MoveStr[CurIdx]);
+										CurIdx++;
+										FoundSourceParts = true;
+									}
+									catch
+									{
+									}
+								}
+								
+								if (MoveStr.Length > CurIdx)
+								{
+									try
+									{
+										CurMove.From.y = CommonShogiNotationHelpers.GetRowByName(MoveStr[CurIdx]);
+										CurIdx++;
+										FoundSourceParts = true;
+									}
+									catch
+									{
+									}
+								}
 							}
 							
-							int ToIdx = FromIdx + 2;
-							if (!Char.IsDigit(MoveStr[ToIdx]))
-								ToIdx++;
+							if (MoveStr.Length > CurIdx)
+							{
+								if (MoveStr[CurIdx] == 'x')
+								{
+									IsHittingEnemyPiece = true;
+									SourceMayBeTarget = false;
+									CurIdx++;
+								}
+								
+								if (MoveStr[CurIdx] == '-')
+								{
+									SourceMayBeTarget = false;
+									CurIdx++;
+								}
+							}
 							
-							CurMove.To.x = CommonShogiNotationHelpers.GetColByName(MoveStr[ToIdx]);
-							CurMove.To.y = CommonShogiNotationHelpers.GetRowByName(MoveStr[ToIdx + 1]);
+							bool TargetIsPromoted = false;
+							if (MoveStr.Length > CurIdx && MoveStr[CurIdx] == '+')
+							{
+								CurIdx++;
+								TargetIsPromoted = true;
+							}
+							if (MoveStr.Length > CurIdx)
+							{
+								try
+								{
+									TargetPieceType = CommonShogiNotationHelpers.GetPieceByName(MoveStr[CurIdx]);
+									if (TargetIsPromoted)
+									{
+										TargetPieceType = TargetPieceType.GetPromotedPiece();
+									}
+									IsHittingEnemyPiece = true;
+
+									SourceMayBeTarget = false;
+									CurIdx++;
+									FoundTargetParts = true;
+								}
+								catch
+								{
+									if (TargetIsPromoted)
+									{
+										throw new Exception("Invalid format: Expected target piece type: " + MoveStr);
+									}
+								}
+							}
 							
-							System.Console.WriteLine(CurMove.ToString());
+							if (MoveStr.Length > CurIdx)
+							{
+								try
+								{
+									CurMove.To.x = CommonShogiNotationHelpers.GetColByName(MoveStr[CurIdx]);
+									SourceMayBeTarget = false;
+									CurIdx++;
+									FoundTargetParts = true;
+								}
+								catch
+								{
+								}
+							}
 							
+							if (MoveStr.Length > CurIdx)
+							{
+								try
+								{
+									CurMove.To.y = CommonShogiNotationHelpers.GetRowByName(MoveStr[CurIdx]);
+									SourceMayBeTarget = false;
+									CurIdx++;
+									FoundTargetParts = true;
+								}
+								catch
+								{
+								}
+							}
+							
+							if (CurMove.OnHandPiece != PieceType.NONE)
+							{
+								if (CurMove.To.x < 0 && CurMove.To.y < 0)
+									throw new Exception("Invalid Move: No target defined in move: " + MoveStr);
+								
+								if (CurMove.To.x < 0 || CurMove.To.y < 0)
+								{
+									ValidMoves PossibleMoves = CurPosition.GetValidOnHandMoves(CurMove.OnHandPiece);
+									ValidMoves FoundMoves = new ValidMoves();
+									
+									foreach (BoardField PossibleMove in PossibleMoves)
+									{
+										if (CurMove.To.x != -1)
+										{
+											if (PossibleMove.x != CurMove.To.x)
+											{
+												continue;
+											}
+										}
+										if (CurMove.To.y != -1)
+										{
+											if (PossibleMove.y != CurMove.To.y)
+											{
+												continue;
+											}
+										}
+										
+										FoundMoves.Add(PossibleMove);
+									}
+									
+									if (FoundMoves.Count == 1)
+									{
+										CurMove.To = FoundMoves[0];
+									}
+									else if (FoundMoves.Count == 0)
+										throw new Exception("Invalid Move: No valid move found for drop: " + MoveStr);
+									else
+									{
+										StringBuilder Message = new StringBuilder();
+										Message.Append("Invalid Move: Ambiguous drop: ");
+										Message.AppendLine(MoveStr);
+										Message.AppendLine();
+										Message.AppendLine("Found targets:");
+										foreach (BoardField AmbiguousMove in FoundMoves)
+										{
+											Message.AppendLine(AmbiguousMove.ToString());
+										}
+										throw new Exception(Message.ToString());
+									}
+								}
+							}
+							else
+							{
+								System.Collections.Generic.List<Move> FoundMoves = new System.Collections.Generic.List<Move>();
+								System.Collections.Generic.List<Move> FoundPreferredMoves = new System.Collections.Generic.List<Move>();
+								
+								for (int x = 0; x < Game.BOARD_SIZE; x++)
+								{
+									for (int y = 0; y < Game.BOARD_SIZE; y++)
+									{
+										if (CurPosition.Board[x, y].Direction != CurPosition.CurPlayer)
+											continue;
+										
+										ValidMoves PossibleMoves = CurPosition.GetValidBoardMoves(new BoardField(x, y));
+										
+										foreach (BoardField PossibleMove in PossibleMoves)
+										{
+											if (IsHittingEnemyPiece
+												&& PossibleMove == LastTarget
+												&& (FoundSourceParts && !FoundTargetParts || !FoundSourceParts && FoundTargetParts))
+											{
+												PieceType Piece;
+												int Move_x;
+												int Move_y;
+												if (FoundSourceParts)
+												{
+													Piece = SourcePieceType;
+													Move_x = CurMove.From.x;
+													Move_y = CurMove.From.y;
+												}
+												else
+												{
+													Piece = TargetPieceType;
+													Move_x = CurMove.To.x;
+													Move_y = CurMove.To.y;
+												}
+												
+												bool FoundPreferredMove = true;
+												
+												if (Piece != PieceType.NONE && CurPosition.Board[x, y].Piece != Piece)
+													FoundPreferredMove = false;
+												if (Move_x != -1 && x != Move_x
+													|| Move_y != -1 &&  y != Move_y)
+													FoundPreferredMove = false;
+												
+												if (FoundPreferredMove)
+												{
+													Move PreferredMove = new Move();
+													PreferredMove.From.x = x;
+													PreferredMove.From.y = y;
+													PreferredMove.To = PossibleMove;
+													FoundPreferredMoves.Add(PreferredMove);
+												}
+											}
+											
+											//if we have found a preferred move we don't need to search for normal move anymore
+											if (FoundPreferredMoves.Count != 0)
+												continue;
+											
+											if (SourceMayBeTarget
+												&& CurMove.From.x != -1
+												&& CurMove.From.y != -1)
+											{
+												if ((x != CurMove.From.x || y != CurMove.From.y)
+													&& (CurMove.From.x != PossibleMove.x || CurMove.From.y != PossibleMove.y))
+												{
+													continue;
+												}
+											
+											}
+											else
+											{
+												if (CurMove.From.x != -1)
+												{
+													if (!SourceMayBeTarget && x != CurMove.From.x
+														|| x != CurMove.From.x && CurMove.From.x != PossibleMove.x)
+													{
+														continue;
+													}
+												}
+												if (CurMove.From.y != -1)
+												{
+													if (!SourceMayBeTarget && y != CurMove.From.y
+														|| y != CurMove.From.y && CurMove.From.y != PossibleMove.y)
+													{
+														continue;
+													}
+												}
+											}
+											if (CurMove.From.x != -1)
+											{
+												if (!SourceMayBeTarget && x != CurMove.From.x
+													|| x != CurMove.From.x && CurMove.From.x != PossibleMove.x)
+												{
+													continue;
+												}
+											}
+											if (CurMove.From.y != -1)
+											{
+												if (!SourceMayBeTarget && y != CurMove.From.y
+													|| y != CurMove.From.y && CurMove.From.y != PossibleMove.y)
+												{
+													continue;
+												}
+											}
+											if (SourcePieceType != PieceType.NONE)
+											{
+												if (!SourceMayBeTarget && CurPosition.Board[x, y].Piece != SourcePieceType
+													|| CurPosition.Board[x, y].Piece != SourcePieceType && CurPosition.Board[PossibleMove.x, PossibleMove.y].Piece != SourcePieceType)
+												{
+													continue;
+												}
+											}
+											
+											if (CurMove.To.x != -1)
+											{
+												if (PossibleMove.x != CurMove.To.x)
+												{
+													continue;
+												}
+											}
+											if (CurMove.To.y != -1)
+											{
+												if (PossibleMove.y != CurMove.To.y)
+												{
+													continue;
+												}
+											}
+											if (TargetPieceType != PieceType.NONE)
+											{
+												if (CurPosition.Board[PossibleMove.x, PossibleMove.y].Piece != TargetPieceType)
+												{
+													continue;
+												}
+											}
+											if (IsHittingEnemyPiece)
+											{
+												if (CurPosition.Board[PossibleMove.x, PossibleMove.y].Piece == PieceType.NONE)
+												{
+													continue;
+												}
+											}
+											
+											Move FoundMove = new Move();
+											FoundMove.From.x = x;
+											FoundMove.From.y = y;
+											FoundMove.To = PossibleMove;
+											FoundMoves.Add(FoundMove);
+										}
+									}
+								}
+								
+								if (FoundPreferredMoves.Count == 1)
+								{
+									CurMove.From = FoundPreferredMoves[0].From;
+									CurMove.To = FoundPreferredMoves[0].To;
+								}
+								else if (FoundPreferredMoves.Count > 1)
+								{
+									StringBuilder Message = new StringBuilder();
+									Message.Append("Invalid Move: Ambiguous move: ");
+									Message.AppendLine(MoveStr);
+									Message.AppendLine();
+									Message.AppendLine("Found preferred moves:");
+									foreach (Move AmbiguousMove in FoundPreferredMoves)
+									{
+										Message.AppendLine(AmbiguousMove.ToString());
+									}
+									throw new Exception(Message.ToString());
+								}
+								else if (FoundMoves.Count == 1)
+								{
+									CurMove.From = FoundMoves[0].From;
+									CurMove.To = FoundMoves[0].To;
+								}
+								else if (FoundMoves.Count == 0)
+									throw new Exception("Invalid Move: No valid move found: " + MoveStr);
+								else
+								{
+									StringBuilder Message = new StringBuilder();
+									Message.Append("Invalid Move: Ambiguous move: ");
+									Message.AppendLine(MoveStr);
+									Message.AppendLine();
+									Message.AppendLine("Found moves:");
+									foreach (Move AmbiguousMove in FoundMoves)
+									{
+										Message.AppendLine(AmbiguousMove.ToString());
+									}
+									throw new Exception(Message.ToString());
+								}
+
+							}
+							
+							//System.Console.WriteLine(CurMove.ToString());
+							CurPosition.ApplyMove(CurMove);
+							//CurPosition.DebugPrint();
 							savegame.Moves.Add(CurMove);
+							LastTarget = CurMove.To;
 							break;
 						}
 						
-						MoveStr.Append((Char)StartChar);
+						MoveStrData.Append((Char)CurChar);
 					}
 				}
-				else if (StartChar < 0)
+				else if (Char.IsWhiteSpace((Char)CurChar))
+				{
+					while (Char.IsWhiteSpace((Char)sr.Peek()))
+					{
+						CurChar = sr.Read();
+						if (CurChar < 0)
+							break;
+					}
+				}
+				else if (CurChar < 0)
 				{
 					break;
 				}
 				else
 				{
-					//useless crap (at least for the parser) like move numbering, game result or whitespace
-					//read to next block
-					while (System.Char.IsWhiteSpace((Char)sr.Peek()))
-					{
-						StartChar = sr.Read();
-						if (StartChar < 0)
-							break;
-					}
+					throw new Exception("Invalid Format: Unrecognized character '" + (char)CurChar + "'");
 				}
 			}
 		}

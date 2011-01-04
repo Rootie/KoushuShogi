@@ -78,6 +78,7 @@ namespace Shogiban
 
 		void HandleGameMoveRemoved(object sender, EventArgs e)
 		{
+			MoveCount--;
 			MovesCB.RemoveText(game.Moves.Count + 1);
 			UpdateMoveNavigationControls();
 		}
@@ -296,7 +297,8 @@ namespace Shogiban
 								stream.Close();
 							}
 							
-							if (!error)
+							//TODO just commented for debugging
+							//if (!error)
 							{
 								game.LoadSaveGame(savegame);
 							}
